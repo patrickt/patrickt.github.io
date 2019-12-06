@@ -41,5 +41,9 @@ main = hakyll do
 
   match "templates/*" $ compile templateCompiler
 
+  version "redirects" $ createRedirects
+    [ ("fluent-polymorphism-with-visible-type-applications", "posts/fluent-polymorphism-type-applications.html")
+    ]
+
 customPandoc :: Compiler (Item String)
 customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions usingSideNotes
