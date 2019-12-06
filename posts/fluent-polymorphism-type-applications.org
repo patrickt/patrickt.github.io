@@ -1,0 +1,259 @@
+---
+title: Fluent Polymorphism with Visible Type Applications
+---
+
+#+TITLE: Fluent Polymorphism with Visible Type Applications
+#+DATE: 2018-12-26
+
+#+BEGIN_QUOTE
+I refer to those genera which have sometimes been called "polymorphic", in which the species present an inordinate amount of variation; and hardly two naturalists can agree which forms to rank as species and which as varieties.
+
+-- Charles Darwin, /The Origin of Species/
+#+END_QUOTE
+
+Haskell is my favorite programming language, but it is not simple---a language with a strong static type system and non-strict semantics is one that must deal in subtlety and nuance. However, typeclasses---one of Haskell's most fundamental tools for the construction of effective abstractions---admit a surprisingly-simple implementation, one drastically simpler than the corresponding features of ALGOL-style scripting languages. This piece aims to be a brief, very-high-level overview of how typeclasses are resolved, how they operate at runtime, and how the ~-XTypeApplications~ extension to GHC provides a more granular approach for such resultion, one that enables sophisticated and subtle APIs in real-world problems.
+
+* fewer words, more meanings
+
+A computer program is a conversation between a human and a machine. A limited conversation, yes, and one often marred by profanity and frustration, but one informed in structure and style by human language, both the languages with which we communicate with our fellow humans and the inner language with which we organize our thoughts. One of the defining features of human language is the ability for one word to mean many things: one signifier, many referents. We can fix a car, we can fix a breakfast, and we can fix an election---though these activities are substantially different, the speakers of English have collectively decided that there is an underlying similarity between them, and that the word 'fix' captures this similarity, giving us one versatile word rather than three[fn:1] situation-specific ones. In other words, spoken language provides /polysemy/--the ability for a word or phrase to refer to different things based on context. Wordplay, metaphor, simile, metonymy, synecdoche: language, and by extension the whole of human thought, delights in polysemy's nuance.
+
+In programming, we refer to this phenomenon as /polymorphism/. Computers, in contrast with humans, do not delight in polymorphism. Resolving the meaning of a polymorphic statement entails choice, and computers are notoriously bad at making correct choices. But effective use of polymorphism is often, if not always, at the heart of well-written code, so nearly all programming languages[fn:2] provide means for polymorphism. Because teaching computers to make predictable,  sensible choices is a complicated prospect, most programming languages use complicated systems to resolve polymorphism:
+
+- Python's object system, providing Simula-style[fn:3] object-orientation with multiple inheritance, uses [[https://en.wikipedia.org/wiki/C3_linearization][C3 linearization]] to resolve a method invoked on an object.
+- Ruby's object system, a weird hybrid of Smalltalk-style class-based OO and Self-style prototypical OO, provides [[https://gist.github.com/damien-roche/351bf4e7991449714533][its own algorithm]], one capable of expressing sophisticated, if oft-surprising, polymorphism.
+- Common Lisp, in keeping with its ethos of flexibility, provides an object system in which the resolution of polymorphism is entirely customizable at runtime. There's a [[https://www.amazon.com/Art-Metaobject-Protocol-Gregor-Kiczales/dp/0262610744][whole book]] about this.
+
+Haskell is different. For all its reputation for being a language that is difficult to learn[fn:4], its system for providing polymorphism is simple, so simple that when I first learned of it I felt vaguely
+cheated in some way. Let's take the notion of equality--~(==)~, one of the most common polymorphic functions--and explore how Haskell represents that, both to the programmer and within its runtime system. (If you're already fluent in Haskell and familiar with dictionary-passing style, you might want to skip ahead to the next section, in which I start playing around with explicit type applications.)
+
+[fn:1] The Oxford English Dictionary [[https://www.nytimes.com/2011/05/29/opinion/29winchester.html][asserts]] that the word 'run' has the most definitions of any word in the language; the verb alone has 645 meanings. If every such meaning were given its own word, it would take more than four months to learn them all, assuming that the average person can learn ~5 words per day.
+
+[fn:2] Even C has ~_Generic~ macros now, which provide a form of compile-time polymorphism.
+
+[fn:3] Unless you use ~@property~, which is much closer to the Smalltalk school of thinking than Simula.
+
+[fn:4] (a reputation that is sometimes unfair and sometimes extremely well-deserved)
+
+* equal/unequal/fun-equal
+
+Polymorphism is a great and necessary thing, but how should a compiler or interpreter implement it? From an object-oriented perspective, in which code and data are intertwined, the most straightforward solution
+to provide is to have some sort of lookup table (usually called a 'vtable', C++ argot for 'virtual method table') present in the in-memory layout of a given object. Due to the fact that Haskell lacks objects but possesses a strong type system, vtables become unnecessary: the target of polymorphic calls is /always/ resolvable at compile time. If, at compile time, your program contains a type variable that cannot be resolved, GHC rejects the program with an error.
+
+Let's take a look at one of Haskell's most fundamental typeclasses and the mechanisms with which GHC compiles this typeclass into its intermediate language, which lacks typeclasses.
+
+#+BEGIN_SRC haskell
+class Eq a where
+  (==) :: a -> a -> Bool
+#+END_SRC
+Haskell's equality operator is implemented atop the ~Eq~ typeclass. Even if you don't speak Haskell, this should look reasonably familiar if you've ever looked at ~Equatable~ in Java or IEquatable in C#.
+
+This interface provides a polymorphic function ~(==)~, one that compares two values (of the same type) for equality. It is polymorphic in one type variable, ~a~ in the above declaration. We can use this function over any type that implements the ~Eq~ interface, as long as ~a~ can be resolved, at some point, to a concrete type like ~Int~ or ~String~. We can write a useful function with ~Eq~.
+
+#+BEGIN_SRC haskell
+allEqual :: Eq a => [a] -> Bool
+allEqual []       = True
+allEqual (h:rest) = all (== h) rest
+#+END_SRC
+Here we define an ~allEqual~ function that is polymorphic in its argument, taking a list of any values implementing ~Eq~. The /constraint/, on the left-hand-side of the ~=>~, introduces a type variable named ~a~, corresponding to a given type that implements the ~Eq~ class. (We call this a 'constraint' because it constrains the set of types that this function will accept.)
+
+Here's the secret to Haskell's implementation of polymorphism: *during compilation, GHC turns that ~=>~ into an ~->~.* That's right: a constraint on a function becomes a parameter to that function[fn:5]. ~allEqual~ is a function that takes one argument, but from the runtime's perspective it takes two. This new argument is called a /dictionary/, and the under-the-covers application of dictionaries to polymorphic functions is called /dictionary-passing style/[fn:6].
+
+#+BEGIN_SRC haskell
+data EqDict a = EqDict { dictEqual :: a -> a -> Bool }
+#+END_SRC
+Under the dictionary-passing model, this typeclass is represented in a manner similar to this Haskell data type—a data structure, parameterized in terms of an input type, that holds references to concrete implementations of the methods referenced in the typeclass.
+
+When types are correctly resolved, an ~EqDict Int~ dictionary will contain in its ~dictEqual~ field the correct implementation of ~==~ for ~Int~ values. /If, during compilation, a polymorphic type cannot be instantiated or inferred to be a concrete type, typechecking will fail./ This is the source of the dreaded ~Ambiguous type variable~ error from GHC: if a given type variable cannot be resolved to a concrete type, we can't build an ~EqDict~ for it, since we don't know how to fill in the ~dictEqual~ field.
+
+This has some resemblance to vtables from object-oriented language, but there's a crucial difference: though a data type may implement ~Eq~, there is no ~EqDict~ carried around within its in-memory representation. Though an ~Int~ may implement dozens of different interfaces, I can pass them around as data and data alone: polymorphism is /provided at call-sites/, not shoehorned into data
+structures themselves.
+
+Let's consider how this would look if Haskell didn't have typeclasses:
+
+#+BEGIN_SRC haskell
+allEqualDictionary :: EqDict a -> [a] -> Bool
+allEqualDictionary dict [] = True
+allEqualDictionary dict (h:rest) = all ((dictEqual dict) h) rest
+#+END_SRC
+This function is equivalent in functionality to our previous one, but we'd have to build an ~EqDict~ every time we invoked the ~(==)~ function, which is both tedious and inefficient. GHC takes care of this for us.
+
+That's it. No fancy algorithm, no superclasses or metaclasses or prototypes, no vtables attached to data structures, no runtime type inference. Just a record type for every typeclass. Remarkable.
+
+[fn:5] An interesting consequence of this is that you can use ~=>~ in more than one place in a type signature: the signatures ~Ord a => Ord b => a -> b -> Bool~ and ~(Ord a, Ord b) => a -> b -> Bool~ are equally valid.
+
+[fn:6] Because GHC's type system is significantly more featureful than the type system specified in the Haskell Report, the details of its typeclass resolution are a bit more complicated—things like type families introduce subtleties to the dictionary-passing approach. You could, however, sit down and implement your own Haskell2010 compiler with dictionary-passing style.
+
+* parental advisory: ambiguous content
+
+I mentioned that GHC will reject programs in which it cannot infer a concrete type for every type variable. So what do you do if GHC can't infer which type to use (or, in other words, which dictionary to pass)? Well, the simplest option is to use an inline type signature.
+
+#+BEGIN_SRC haskell
+let tenThousand = 10000 :: Integer
+
+-- Ambiguous: it's unclear which 'Num' instance to return from fromIntegral.
+print (fromIntegral tenThousand)
+
+-- Unambiguous: by narrowing the 'Num' instance to that of 'Word32', we
+-- know which Num and Show instances to use.
+print (fromIntegral tenThousand :: Word32)
+#+END_SRC
+If we have some constraint--~Eq a~, let's say--we can, with a type signature, specify an explicit, rather than inferred, type should use. The number 10,000 goes from a polymorphic value to a concrete ~Integer~. Similarly, the result of ~fromIntegral~, which yields a value of some type implementing the ~Integral~ typeclass, is established as a ~Word32~ with the explicit signature ~:: Word32~. (You can't go the other way: it is not legal to "upcast" a function of ~Int -> Int~ to ~Num a => a -> a~).
+
+Ultimately, what we're /doing/ with this inline type signature is specifying otherwise-unresolvable entries in the given call's dictionary. Thus, a question: what if, instead of inserting inline type signatures, we had a more-general syntax specifically for this purpose, one that allowed us to state exactly which types should be passed to a given function's dictionary?
+
+Good news: we do. The ~-XTypeApplications~ extension to GHC Haskell landed in GHC 8.0, providing syntax for /visible type applications/, as described in the eponymous and [[https://www.seas.upenn.edu/~sweirich/papers/type-app-extended.pdf][excellent paper]] by Richard Eisenberg, Stephanie Weirich, and Hamidhasan Ahmed.
+
+* a notation for annotation
+
+#+BEGIN_SRC haskell
+allEqual :: Eq a => [a] -> Bool
+#+END_SRC
+This was the type of our ~allEqual~ function above. When GHC has
+compiled Haskell down to its intermediate language, we know that
+this ~Eq a~ parameter will be represented with a dictionary.
+
+#+BEGIN_SRC haskell
+-- n.b.: This is not legal Haskell syntax
+allEqual :: @EqDict -> [a] -> Bool
+#+END_SRC
+In this pseudo-Haskell syntax, we use the ~@~ prefix to mean "a dictionary for". If we applied ~allEqual~ to a list of ~Char~ values, the dictionary passed in would be represented as ~@Char~.
+
+The purpose of the ~-XTypeApplications~ extension is to let us, using the ~@~ syntax, /manually specify/ the type and dictionary used for a given polymorphic call. (Unlike inline type signatures, explicit type annotations cannot be applied to values: they are always part of function calls.)
+
+#+BEGIN_SRC haskell
+λ :set -XTypeApplications -- or {-# LANGUAGE TypeApplications #-}
+#+END_SRC
+And since explicit type applications are not part of Haskell 2010, we
+have to toggle their presence with a ~LANGUAGE~ pragma. When we turn
+this on, we can start with a simple example.
+
+#+BEGIN_EXAMPLE
+λ :t 100
+100 :: Num p => p
+#+END_EXAMPLE
+An interesting feature of Haskell is that its integer literals are
+untyped. This means that, in the absence of any other calls that might resolve
+a given numeric literal to a concrete type such as ~Int~, ~Integer~,
+or ~Double~, its type is polymorphic: that ~100~ can stand for any
+type[fn:7] that implements the ~Num~ interface.
+
+#+BEGIN_EXAMPLE haskell
+λ :t id @Int32 100
+id @Int32 100 :: Int32
+#+END_EXAMPLE
+But when we use the ~id~ function and a type application, we can
+constrain the type that ~id~ takes, forcing that literal to be a given
+type. Given that you can't apply a type application directly to a
+literal (type applications only work in function contexts), this
+hardly seems a benefit over using an explicit type signature, no
+call to ~id~ required:
+
+#+BEGIN_EXAMPLE haskell
+λ :t (100 :: Int32)
+100 :: Int32
+#+END_EXAMPLE
+Yet ~TypeApplications~'s usefulness is more apparent in a more
+polymorphic context. Let's define a rather unprincipled function to
+demonstrate this.
+
+#+BEGIN_SRC haskell
+unprincipledAdd :: (Integral a, Integral b)
+                => a -> a -> b
+unprincipledAdd a b = fromIntegral (a + b)
+#+END_SRC
+ ~unprincipledAdd~ takes two values of some ~Integral~ type and adds
+ them together, coercing the result of that addition into some other
+ type implementing ~Integral~ . This is fine to define, but at
+ invocations of ~unprincipledAdd~ we may run into trouble.
+
+#+BEGIN_SRC haskell
+print (unprincipledAdd 1 2)
+#+END_SRC
+If we write the above call in Haskell code[fn:8], GHC will
+reject our program, as it cannot figure out what type to resolve
+for the numeric literals: they could be ~Int32~, ~Integer~, ~Word16~,
+~Double~---anything that implements the ~Num~ typeclass.
+
+#+BEGIN_SRC haskell
+print (unprincipledAdd @Int @Word 1 2)
+#+END_SRC
+In contrast, the call with explicit type applications will typecheck
+successfully. The above call can be expressed with explicit type
+signatures, too:
+
+#+BEGIN_SRC haskell
+print ((unprincipledAdd (1 :: Int) (2 :: Int)) :: Word)
+#+END_SRC
+In contrast with our previous example, I'd argue that the explicit type signatures make this version significantly more difficult to read.
+
+Visibile type applications also play nice with inference:
+
+#+BEGIN_SRC haskell
+someFunction @Int @_ @(Vector _) a b c
+#+END_SRC
+The ~@_~ syntax, like the =_= character in a pattern-matching context,
+means something akin to a wildcard: it lets us rely on the type
+inference engine to infer a particular type variable, while letting us
+continue on and specify the values for further parameters. Here our
+invocation means "the first parameter of this function is applied to
+~Int~, the second should be inferred by the type system, and the third
+is some ~Vector~ containing a type that I want inferred."
+
+#+BEGIN_SRC haskell
+someFunction @Int a b c
+#+END_SRC
+If we only need to specify the first N type variables, leaving the
+subsequent values up to the type inference engine, we need only
+provide as many variables as we need: GHC will apply the wildcard
+application to all further type variables.
+
+[fn:7] such as the excellent [[https://wiki.haskell.org/Num_instance_for_functions][~Num~ instance]] for functions
+
+[fn:8] If you try this upcoming code sample in =ghci=, it will execute without error, whereas if you try it in a standard  Haskell source file it will fail to typecheck. This is because  =ghci= uses a set of [[https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/ghci.html#type-defaulting-in-ghci][type defaulting]] rules to resolve a sensible type for polymorphic literals. This feature is actually present in Haskell itself ([[https://www.haskell.org/onlinereport/haskell2010/haskellch4.html#x10-750004.3][section 4.3.4]] of the Haskell Report has the gory details), but is tremendously obscure and rarely, if ever, seen in real-world code.
+
+[fn:9] if not /the/ fundamental technique
+
+* special effects
+
+Visible type applications are essential for idiomatic use of the [[https://hackage.haskell.org/package/fused-effects][=fused-effects=]] library. While a complete explanation of the use of and motivation behind effects systems is out of scope for this
+particular blog post, it suffices to consider an effectful computation that has access to two stateful variables, of type ~Foo~ and ~Bar~.
+
+#+BEGIN_SRC haskell
+effectful :: (Member (State Foo) sig, Member (State Bar) sig, Carrier m) => m ()
+#+END_SRC
+=fused-effects= provides ~get~ and ~put~ functions that manipulate any
+type provided by the ~Member State~ constraints. Though pleasingly
+polymorphic, this can lead to situations that stump the type checker:
+
+#+BEGIN_SRC haskell
+stringRepr :: (Member (State Foo) sig, Member (State Bar) sig, Carrier m) => m String
+stringRepr = do
+  var <- get
+  pure (show var)
+#+END_SRC
+It is not clear from this code whether the ~get~ invocation should
+return a ~Foo~ or a ~Bar~---in other words, whether it should use the
+~State Foo~ constraint or the ~State Bar~ constraint. A visible type application
+clears that right up.
+
+#+BEGIN_SRC haskell
+{-# LANGUAGE TypeApplications #-}
+
+stringRepr = do
+  var <- get @Foo
+  pure (show var)
+#+END_SRC
+Thanks to the visible type application (more readable than an explicit  signature around the ~get~ invocation or, with ~-XScopedTypeVariables~,  around ~var~), the typechecker is no longer stuck, and we can continue on our merry way.
+
+* =Conclusion c => c=
+
+Most languages have simple evaluation semantics and complicated
+polymorphism semantics. Haskell is the opposite: its non-strict
+evaluation strategy is subtle, but its strategy for resolving
+polymorphic functions is simple, and places no requirements on the
+memory layout of Haskell data structures, in contrast with most
+object-oriented languages.
+
+It's insights like these that prove the worth and merit of exploring unconventional programming languages. While object-oriented programming has been one of the great success stories in all of software engineering, traditional OOP approaches often entail surprising restrictions. In this way, the despairing air of the Darwin quote that opened this piece is not applicable: given the richness of polymorphism in human language, there are surprisingly simple ways to embed it within a programming language. I'm sure he'd be relieved to know that. Or possibly not. The man was kind of a downer.
+
+/I'd like to thank Ayman Nadeem, Peter Berger, Rick Winfrey, and Kenny Foner for reviewing drafts of this post./

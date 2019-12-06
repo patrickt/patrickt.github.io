@@ -1,6 +1,6 @@
 {-# LANGUAGE BlockArguments, OverloadedStrings #-}
 
-module Main where
+module Main (main) where
 
 import Hakyll
 
@@ -19,7 +19,7 @@ main = hakyll do
 
 
   match "posts/*.org" do
-    route idRoute
+    route $ setExtension "html"
     compile $ pandocCompiler
       >>= saveSnapshot "content"
       >>= loadAndApplyTemplate "templates/default.html" defaultContext
@@ -36,4 +36,3 @@ main = hakyll do
         >>= relativizeUrls
 
   match "templates/*" $ compile templateCompiler
-
