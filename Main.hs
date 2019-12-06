@@ -3,7 +3,6 @@
 module Main (main) where
 
 import Hakyll
-import Debug.Trace
 
 main :: IO ()
 main = hakyll do
@@ -11,12 +10,13 @@ main = hakyll do
     route   idRoute
     compile compressCssCompiler
 
+  match "css/*" $ compile compressCssCompiler
+
   create ["stylesheet.css"] do
     route idRoute
     compile do
       tufte <- load "vendor/tufte-css/tufte.css"
       csses <- loadAll "css/*.css"
-      traceShowM csses
       makeItem $ unlines $ map itemBody $ tufte : csses
 
 
