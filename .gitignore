@@ -1,3 +1,5 @@
 .DS_Store
 dist
 dist-newstyle
+_cache
+_site
