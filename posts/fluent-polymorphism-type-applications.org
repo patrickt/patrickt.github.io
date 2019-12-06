@@ -1,5 +1,6 @@
 ---
 title: Fluent Polymorphism with Visible Type Applications
+date: 2018-12-26
 ---
 
 #+TITLE: Fluent Polymorphism with Visible Type Applications

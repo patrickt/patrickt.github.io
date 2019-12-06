@@ -29,7 +29,8 @@ main = hakyll do
   match "index.html" do
     route idRoute
     compile do
-      let ctx = constField "title" "Home" <> defaultContext
+      posts <- recentFirst =<< loadAll "posts/*"
+      let ctx = listField "posts" defaultContext (pure posts) <> constField "title" "Home" <> defaultContext
       getResourceBody
         >>= applyAsTemplate ctx
         >>= loadAndApplyTemplate "templates/default.html" ctx
