@@ -17,6 +17,15 @@ main = hakyll do
       csses <- loadAll "css/*.css"
       makeItem $ unlines $ map itemBody $ tufte : csses
 
+
+  match "posts/*.org" do
+    route idRoute
+    compile $ pandocCompiler
+      >>= saveSnapshot "content"
+      >>= loadAndApplyTemplate "templates/default.html" defaultContext
+      >>= relativizeUrls
+
+
   match "index.html" do
     route idRoute
     compile do
