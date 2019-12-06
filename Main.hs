@@ -3,6 +3,7 @@
 module Main (main) where
 
 import Hakyll
+import Text.Pandoc.SideNote
 
 main :: IO ()
 main = hakyll do
@@ -22,7 +23,7 @@ main = hakyll do
 
   match "posts/*.org" do
     route $ setExtension "html"
-    compile $ pandocCompiler
+    compile $ customPandoc
       >>= saveSnapshot "content"
       >>= loadAndApplyTemplate "templates/default.html" defaultContext
       >>= relativizeUrls
@@ -39,3 +40,6 @@ main = hakyll do
         >>= relativizeUrls
 
   match "templates/*" $ compile templateCompiler
+
+customPandoc :: Compiler (Item String)
+customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions usingSideNotes
