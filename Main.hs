@@ -5,10 +5,21 @@ module Main where
 import Hakyll
 
 main :: IO ()
-main = hakyll $ do
-  match "index.html" $ do
+main = hakyll do
+  match "vendor/tufte-css/tufte.css" do
+    route   idRoute
+    compile compressCssCompiler
+
+  create ["stylesheet.css"] do
     route idRoute
-    compile $ do
+    compile do
+      tufte <- load "vendor/tufte-css/tufte.css"
+      csses <- loadAll "css/*.css"
+      makeItem $ unlines $ map itemBody $ tufte : csses
+
+  match "index.html" do
+    route idRoute
+    compile do
       let ctx = constField "title" "Home" <> defaultContext
       getResourceBody
         >>= applyAsTemplate ctx
