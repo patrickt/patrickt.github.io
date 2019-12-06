@@ -3,6 +3,7 @@
 module Main (main) where
 
 import Hakyll
+import Debug.Trace
 
 main :: IO ()
 main = hakyll do
@@ -15,6 +16,7 @@ main = hakyll do
     compile do
       tufte <- load "vendor/tufte-css/tufte.css"
       csses <- loadAll "css/*.css"
+      traceShowM csses
       makeItem $ unlines $ map itemBody $ tufte : csses
 
 
