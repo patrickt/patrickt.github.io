@@ -11,6 +11,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@master
+      - uses: textbook/git-checkout-submodule-action@2.0.0
 
       - uses: actions/setup-haskell@v1
         with:
