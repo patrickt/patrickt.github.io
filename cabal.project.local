@@ -1,2 +1,4 @@
+optimization: False
+
 package organic
   ghc-options: -Werror
