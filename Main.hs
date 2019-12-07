@@ -20,16 +20,8 @@ main = hakyll do
       csses <- loadAll "css/*.css"
       makeItem $ unlines $ map itemBody $ tufte : csses
 
-
   match "posts/*.org" do
     route $ setExtension "html"
-    compile $ customPandoc
-      >>= saveSnapshot "content"
-      >>= loadAndApplyTemplate "templates/default.html" defaultContext
-      >>= relativizeUrls
-
-  match "vendor/recschemes/org/ch1.org" do
-    route $ constRoute "posts/recursion-schemes-ch-1.html"
     compile $ customPandoc
       >>= saveSnapshot "content"
       >>= loadAndApplyTemplate "templates/default.html" defaultContext
