@@ -8,13 +8,14 @@ pre code {
     border-color: #545454;
 }
 
+pre code span.dt { color: #F0C674; font-weight: normal; font-style: normal; } /* DataType */
+
 code span.kw { color: #B294BB; font-weight: bold;   font-style: normal; } /* Keyword */
-code span.dt { color: #F0C674; font-weight: normal; font-style: normal; } /* DataType */
 code span.dv { color: #2AA198; font-weight: normal; font-style: normal; } /* DecVal */
 code span.bn { color: #2AA198; font-weight: normal; font-style: normal; } /* BaseN */
 code span.fl { color: #2AA198; font-weight: normal; font-style: normal; } /* Float */
 code span.ch { color: #2AA198; font-weight: normal; font-style: normal; } /* Char */
-code span.st { color: #B5BD68; font-weight: normal; font-style: normal; } /* String */
+code span.st { color: #459E49; font-weight: normal; font-style: normal; } /* String */
 code span.co { color: #93A1A1; font-weight: normal; font-style: italic; } /* Comment */
 code span.ot { color: #C5C8B6; font-weight: normal; font-style: normal; } /* Other */
 code span.al { color: #DC322F; font-weight: bold;   font-style: normal; } /* Alert */

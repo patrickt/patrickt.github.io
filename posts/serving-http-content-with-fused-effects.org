@@ -1,0 +1,200 @@
+#+TITLE: Serving HTTP Content with ~fused-effects~
+#+DATE: 2019-11-22
+
+2019 was the year of algebraic effect systems. From [[https://github.com/hasura/eff][~eff~]] to [[http://hackage.haskell.org/package/polysemy][~polysemy~]] to [[http://hackage.haskell.org/package/capability][~capabilities~]] to [[http://hackage.haskell.org/package/fused-effects][~fused-effects~]] (which I've been lucky enough to work on alongside [[https://twitter.com/rob_rix][Rob Rix]]), we've seen a whole class of libraries providing an alternative to [[http://hackage.haskell.org/package/mtl][~mtl~]], the historical /de facto/ choice for expressing effects in Haskell. I [[https://www.youtube.com/watch?v=vfDazZfxlNs][spoke at Strange Loop]] about the history of effect systems, the tradeoffs associated with selecting an effect system, and why I think ~fused-effects~ is an excellent choice[fn:2]. I've been programming Haskell for ten years, five years professionally, and ~fused-effects~ has done more to improve both the maintainability of my code and the joy associated with maintaining this code than any library I've used thus far.
+
+The response from the Haskell community has been exciting: many people are excited to examine how best to structure modular Haskell applications. Yet the number one complaint that Rob and I have heard from prospective users is that there doesn't exist an end-to-end tutorial demonstrating to those already familiar with ~mtl~ the process of building applications with ~fused-effects~. This post exists to fill that particular need: I'll show you how to use ~fused-effects~'s APIs to build a minimal but aesthetically-pleasing syntax for handling HTTP requests and serving HTTP content. This is definitely not a web framework per se—we won’t bother with request routing, caching, or any of the features that a real-world framework will need. We will, however, see how quickly ~fused-effects~ can bring syntactic beauty and semantic clarity when communicating with third-party code. We'll start with an ad-hoc approach, using ~fused-effects~'s built-in capabilities and effect types; in subsequent installments, we'll take a more formal approach, building our own effect types that describe the capabilities of a simple web application.
+
+Let's get started. This post is literate Haskell; you can find its source here. We'll call this little web framework ~Quad~, in homage to [[https://en.wikipedia.org/wiki/86-DOS][another]] quick-and-dirty software product of yesteryear.
+
+#+BEGIN_SRC haskell :tangle ../src/Web/Quad.hs
+{-# LANGUAGE TypeApplications, OverloadedStrings #-}
+module Web.Quad where
+
+import qualified Network.Wai as Wai
+import qualified Network.HTTP.Types as HTTP
+#+END_SRC
+We'll use the [[http://hackage.haskell.org/package/wai][~wai~]] framework to abstract over the interface over whatever web server we end up using; like its Python cousin [[https://en.wikipedia.org/wiki/Web_Server_Gateway_Interface][WSGI]] or Ruby's [[https://github.com/rack/rack][~rack~]], Wai is little more than a shared set of types and calling conventions for communicating with a web server. It defines src_haskell{Request} and src_haskell{Response} types; our DSL will consume src_haskell{Request}s and produce src_haskell{Response}s. The [[http://hackage.haskell.org/package/http-types][~http-types~]] package provides a shared vocabulary to describe request types (~GET~, ~POST~, etc.) and response codes (~200 OK~, ~404 Not Found~, etc.)
+
+[fn:2] I am, of course, biased towards the project to which I contribute.
+
+* Desiderata
+
+The list of things that a web framework /can/ do for you is considerable. We don't have the space, time, or inclination to write a full-fledged Rails clone here, so let's err on the side of the minimal. The handlers provided by a web framework need to provide:
+
+1. immutable access to the current HTTP request;
+2. mutable access to the current HTTP response;
+3. an accumulated set of headers that will be returned alongside a response;
+4. and a way to respond to the client with a stream of bytes.
+
+The process of building programs with ~fused-effects~ involves mapping each desired objective to an effect. Depending on your goals, you may be able to use the effects and carriers that come with ~fused-effects~, or you may have to write your own effects. As mentioned above, this post will use an ad-hoc approach, building this framework's capabilities atop the effects provided by ~fused-effects~'s core.
+
+Having identified these four requirements, we now need to know how to represent them in code. To do this, we need to consult ~wai~'s most fundamental definition.
+
+#+BEGIN_SRC haskell
+-- from Network.Wai
+type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+#+END_SRC
+This declaration defines an src_haskell{Application} type. Values of type src_haskell{Application} are functions that take two arguments. This first argument is an immutable src_haskell{Request}; the second is a function that takes a src_haskell{Request} and returns an opaque src_haskell{ResponseRecieved} type.
+
+We access the properties of the current request through accessors provided by ~Network.Wai~, and we yield a ~ResponseReceived~ by constructing a src_haskell{Response} datum and passing it to the provided function. This means that whatever effectful abstraction we choose, the result of interpreting an effectful action will be an ~Application~---a function type that we pass into our chosen HTTP server. Our task now is to identify which effects we will use to pair a type provided by ~wai~ with its corresponding capability:
+
+| Capability          | Wai type               | Effect                       |
+|---------------------+------------------------+------------------------------|
+| Immutable requests  | ~Wai.Request~          | ~Reader Wai.Request~         |
+| Mutable responses   | ~HTTP.Status~          | ~State HTTP.Status~          |
+| Accumulated headers | ~Wai.ResponseHeaders~  | ~Writer Wai.ResponseHeaders~ |
+| Streaming responses | ~Streaming.ByteString~ | ~Lift Streaming.ByteString~  |
+
+These effects may be familiar to you. The ~Reader~ effect corresponds to ~mtl~'s ~MonadReader~, the ~State~ effect to ~MonadState~, ~Writer~ to ~MonadWriter~, and ~Lift~ to ~MonadTrans~. (Don't worry about ~Streaming.ByteString~ yet.) We'll import these effects' definition from ~fused-effects~.
+
+#+BEGIN_SRC haskell
+import Control.Effect.Reader
+import Control.Effect.State
+import Control.Effect.Writer
+import Control.Effect.Lift
+#+END_SRC
+
+Yet it's not enough just to import these effects. One of the primary wins associated with ~fused-effects~ is that it separates the interfaces associated with an effect from the implementation of that effect. One effect can have multiple interpretations; depending on our needs, we could interpret a state effect with a strict state monad, or a lazy state monad, or a reader monad wrapping a mutable reference. We call these monads that interpret an effect a /carrier/. These carriers live under ~fused-effects~'s ~Control.Carrier~ hierarchy. Let's import the carriers we need: we'll be using strict state and writer monads, since we don't need the generality provided by lazy state, and the lazy writer monad shouldn't exist in the first place.
+
+#+BEGIN_SRC haskell :tangle ../src/Web/Quad.hs
+import Control.Carrier.Reader
+import Control.Carrier.Strict.State
+import Control.Carrier.Writer
+import Control.Carrier.Lift
+#+END_SRC
+As it happens, the above carrier modules reexport their corresponding effects, so the above imports from ~Control.Effect~ are not necessary: you only need O(n) imports, not O(2n). You're welcome.
+
+#+BEGIN_SRC haskell
+import qualified Network.Wai.Handler.Warp
+#+END_SRC
+We'll pull in the [[http://hackage.haskell.org/package/warp][~warp~]] web server to actually serve our requests.
+
+#+BEGIN_SRC haskell :tangle ../src/Web/Quad.hs
+import qualified Data.ByteString.Streaming as Streaming
+#+END_SRC
+Finally, we'll pull in the [[http://hackage.haskell.org/package/streaming-bytestring][~streaming-bytestring~]] library to provide a nice interface for streaming data over the wire. Haskell has many choices for streaming data; we could have used [[http://hackage.haskell.org/package/io-streams][~io-streams~]] or [[http://hackage.haskell.org/package/pipes-bytestring][~pipes-bytestring~]], but ~streaming-bytestring~ is convenient in that its underlying type, the ~ByteString~ monad transformer, represents computations that involve streamed bytes. By using the ~ByteString~ monad as the base effect in our effect stack, we can use the ~Lift~ effect to abstract over the action of streaming bytes into the body of a ~Response.~
+
+#+BEGIN_SRC haskell
+type ByteStream = Streaming.ByteString IO
+#+END_SRC
+To disambiguate the ~Lazy.ByteString~ type from the ~Streaming.ByteString~ monad, we'll define a type synonym for the ~ByteString~ monad over ~IO~.
+
+
+* A Simple Handler
+
+Let's dive right in. We'll use the effects we've imported to write a dead-simple web handler.
+
+#+BEGIN_SRC haskell
+helloWorld :: ( Has (Reader Wai.Request) sig m
+              , Has (State HTTP.Status) sig m
+              , Has (Writer Wai.ResponseHeaders) sig m
+              , Has (Lift ByteStream) sig m
+              )
+           => m ()
+#+END_SRC
+
+Declaring this signature establishes src_haskell{helloWorld} as a monadic action ~m~ returning no interesting result (the unit type ~()~). We declare the capabilities of this handler piecewise by using the src_haskell{Has} constraint: a src_haskell{Has eff sig m} constraint declares that the monad ~m~ has access to the effect ~eff~ in the given signature ~sig~. (We'll touch more on what signatures mean in ~fused-effects~ later; you can ignore them for now). (Note that we don't return a result here, even though ~wai~ expects us ultimately to return a src_haskell{ResponseReceived} datum, because we'll build that datum when we interpret the src_haskell{helloWorld} action into a concrete type.) Now that we have a signature for this action, we can define a minimally-interesting body for it.
+
+#+BEGIN_SRC haskell
+helloWorld = do
+  req <- ask @Request
+  tell @Wai.ResponseHeaders [(HTTP.hContentType, "text/plain")]
+  sendM "Hello, world!\n"
+  sendM ("You requested " <> Streaming.fromStrict (Wai.rawQueryString reqd))
+  put @HTTP.Status HTTP.ok200
+#+END_SRC
+This is a little involved, so let's step through it slowly:
+
+- The call to src_haskell{ask} invokes the src_haskell{Reader} effect. Note that we provide it a [[https://blog.sumtypeofway.com/fluent-polymorphism-with-visible-type-applications/][visible type application]]; unlike ~mtl~, actions expressed with ~fused-effects~ can have multiple src_haskell{Reader} or src_haskell{State} constraints, and because of this we generally use the type application syntax to indicate to which type a call to src_haskell{ask}, src_haskell{gebt}, or src_haskell{put} refers.[fn:1] This is very handy in that it lets us manipulate exactly what state and context types we need, without having to resort to the [[https://carlo-hamalainen.net/2015/07/20/classy-mtl/]["classy-lenses"]] approach due to ~mtl~ imposing only one ~MonadReader~ and ~MonadState~ constraint per action.
+- Similarly, we call src_haskell{tell} to invoke the src_haskell{Writer} effect, providing it with a list of header-value pairs. Again, we use a visible type application to indicate both to the compiler and reader what ~Writer~ constraint we want to invoke.
+- The call to src_haskell{sendM} invokes the src_haskell{Lift} effect. Like the src_haskell{lift} function provided by src_haskell{MonadTrans}, this function lifts actions in a context's base monad (here ~ByteStream~) into that context. Because ~ByteStream~ has an ~IsString~ instance, we can represent the action of sending the string ~Hello, world!~ down the pipe with the string literal src_haskell{"Hello, world!"}. We could also use the ~Streaming.string~ helper function if we wished to eschew the ~OverloadedStrings~ extension.
+- Finally, we call src_haskell{put} to hook into the ~State~ effect, setting the mutable ~HTTP.Status~ datum to return ~200 OK~.
+
+This isn't a hugely interesting HTTP handler, but it's good enough for our purposes. Our next step is to interpret this effect.
+
+* Interpretation
+
+#+BEGIN_SRC haskell
+main :: IO ()
+main = Warp.run 8080 (runApplication helloWorld)
+#+END_SRC
+To actually serve a request, we need to call ~warp~'s src_haskell{run} function, which takes a port number and a src_haskell{Wai.Application} to run. This is not rocket science, but it does pose us a problem: we need to define a src_haskell{runApplication} function if we want to actually compile this. At this point, ~fused-effects~'s idioms start divering from those of ~mtl~.
+
+#+BEGIN_SRC haskell
+-- mtl style
+newtype WebT m a = WebT { unWebT :: WriterT Wai.ResponseHeaders (StateT HTTP.Status (Streaming.ByteString m)) a }
+  deriving (Functor, Applicative, Monad, MonadState HTTP.Status, MonadWriter Wai.ResponseHeaders, MonadTrans)
+
+#+END_SRC
+In an ~mtl~ universe, we'd define our own monad transformer, and we'd use the ~GeneralizedNewtypeDeriving~ extension to conform to the various ~MonadFoo~ interfaces. We can build our ~fused-effects~ applications with this kind of concrete monad stack, and sometimes we may wish to do so, but for this case the particulars of our monad stack aren't particularly interesting. In this case, we want to abstract over the particulars of what concrete monad stack we use. As such, we'll use the ~PartialTypeSignatures~ extension to leave this type purposely abstract: by prefixing our monad type ~m~ with an underscore, GHC will infer from our interpretation functions what kind
+
+#+BEGIN_SRC haskell
+runApplication :: _m () -> Application
+runApplication action req respond = do
+#+END_SRC
+
+We're going to use the functions provided by the imported ~Control.Carrier~ modules to interpret ~action~ into the types we need to build a ~ResponseReceived~ datum. These functions obey the naming convention established by the ~transformers~ package, though their parameter orders have been changed to make composition easier.
+
+#+BEGIN_SRC haskell
+  result <-
+    ByteStream.toLazy
+    . runM @ByteStream
+    . runReader @Wai.Request req
+    . runState @HTTP.Status HTTP.status500
+    . runWriter @Wai.Response
+    $ action
+#+END_SRC
+This will be immediately familiar to people who, like me, have spent dozens and dozens of hours wrapping and unwrapping ~mtl~ transformer stacks. But there are some immediate differences. Note, for example, that we've specified the order of effects not with a data structure, as in the src_haskell{WebT} monad above, but with the calls to the ~run~ family of functions. Because the ~.~ operator works right-to-left, we start by discharging the src_haskell{Writer} effect from src_haskell{action}: this uses the ~Control.Carrier.Writer.Strict~ carrier to peel one layer of effects off of ~action~. That carrier preserves all the result of all aggregated src_haskell{Writer} actions (such as src_haskell{tell} or src_haskell{listen}) into a src_haskell{Wai.ResponseHeaders} datum returned in a tuple. Later, when we need to construct a src_haskell{Response}, we'll deconstruct src_haskell{result} and extract that datum.
+
+After peeling off that src_haskell{Writer} effect, we then peel off a src_haskell{State} effect. We pass a type application for explicitness's sake, along with an initial datum with which this state value will be initialized (in this case src_haskell{status500}). We then peel off the src_haskell{Reader} effect, passing the provided request data to src_haskell{runReader}. Finally, we discharge the src_haskell{Lift} effect with src_haskell{runM}, yielding a src_haskell{ByteStream} value, which we then interpret into a lazy bytestring paired with the status and header information.
+
+At this point, ~result~ is of type src_haskell{Of Lazy.ByteString (ResponseHeaders, (Status, ()))}. The src_haskell{Of} type comes from ~streaming-bytestring~, where it represents a left-strict pair; the nested tuples represent the data yielded at each effect discharge, terminating in the unit value. With a ~case~ statement and some helper functions, we can build a ~Response~ and pass it to ~respond~.
+
+#+BEGIN_SRC haskell
+  let (respBody :< (headers, (status, ()))) = result
+  respond (Wai.responseLBS status headers respBody)
+#+END_SRC
+
+* Some More Abstractions
+
+#+BEGIN_SRC haskell
+type Web sig m = ( Has (Reader Wai.Request) sig m
+                 , Has (State HTTP.Status) sig m
+                 , Has (Writer HTTP.ResponseHeaders) sig m
+                 , Has (Lift ByteStream) sig m
+                 )
+#+END_SRC
+With the ~ConstraintKinds~ extension to GHC, we can give a single name to the set of effects required to express a Wai application.
+
+
+#+BEGIN_SRC haskell
+htmlHandler :: Web sig m => m ()
+htmlHandler = do
+  put @HTTP.Status HTTP.status200
+  sendM "<html><h1>Hello.</h1></html>“
+#+END_SRC
+This cleans up the type signatures of our handler functions considerably. We are not, however, locked into using /just/ these effects.
+
+#+BEGIN_SRC haskell
+-- Assume we have some 'Config' data type providing a 'responseFromConfig' function.
+htmlHandler :: (Has (Reader Config) sig m, Web sig m) => m ()
+htmlHandler = do
+  cfg <- ask @Config
+  put @HTTP.Status HTTP.status200
+  sendM (responseFromConfig cfg)
+#+END_SRC
+
+We're able to add a new ~Reader~ constraint to a handler, even though we already have a ~Reader~ constraint in the ~Web~ synonym, because ~fused-effects~ is just that versatile. (This would not be possible to do with the ~WebT~ monad transformer.)
+
+At this point, we have enough code to run these actions. Let's do so:
+
+#+BEGIN_SRC
+$ curl localhost:8080/?query
+Hello, world!
+You requested: ?query
+#+END_SRC
+
+Is this an exciting web framework? No. It provides very few features and no request routing at all. Furthermore, it's an admittedly ad-hoc design. A better and more morally-upstanding design would define custom effects for the four capabilities of our web server. And indeed we will do that… next time.
+
+[fn:1] Because we pass the yielded datum to the src_haskell{rawQueryString} function, which takes a src_haskell{Wai.Request}, GHC is able to infer the type of this call to src_haskell{ask} without the explicit type application; I've kept it in there both for pedagogy's sake and out of personal preference.
