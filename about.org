@@ -13,6 +13,6 @@ I’m passionate about a great many things in life. Here is an inexhaustive list
 
 ** Nerd Stuff
 
-The posts on this blog are licensed under the Creative Commons [[https://creativecommons.org/licenses/by-nc-sa/4.0/][BY-NC-SA 4.0]] license. I built this blog using [[https://jaspervdj.be/hakyll/][Hakyll]], [[https://orgmode.org][Org-mode]], [[https://github.com/edwardtufte/tufte-css][Edward Tufte’s CSS]], and [[https://pages.github.com][GitHub Pages]]. You can take a look at [[https://github.com/patrickt/patrickt.github.io][the source]] if you’re curious as to how it works.
+The posts on this blog are licensed under the Creative Commons [[https://creativecommons.org/licenses/by-nc-sa/4.0/][BY-NC-SA 4.0]] license. I built this blog using [[https://jaspervdj.be/hakyll/][Hakyll]], [[https://orgmode.org][Org-mode]], [[https://github.com/edwardtufte/tufte-css][Edward Tufte’s CSS]], and [[https://pages.github.com][GitHub Pages]]. You can take a look at [[https://github.com/patrickt/patrickt.github.io][the source]] if you’re curious as to how it works. There is no support for comments on this blog, as all its pages are statically generated; if you truly feel compelled to comment, there are many news aggregators that provide you with such a space.
 
 This blog’s domain name—a weak pun on [[https://en.wikipedia.org/wiki/Tagged_union][sum types]] and a [[https://www.youtube.com/watch?v=-KKbdErJkiY][good song]], was coined by Andy Gross (1977-2018).
