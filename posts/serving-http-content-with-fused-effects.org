@@ -125,7 +125,7 @@ This isn't a hugely interesting HTTP handler, but it's good enough for our purpo
 main :: IO ()
 main = Warp.run 8080 (runApplication helloWorld)
 #+END_SRC
-To actually serve a request, we need to call ~warp~'s src_haskell{run} function, which takes a port number and a src_haskell{Wai.Application} to run. This is not rocket science, but it does pose us a problem: we need to define a src_haskell{runApplication} function if we want to actually compile this. At this point, ~fused-effects~'s idioms start divering from those of ~mtl~.
+To actually serve a request, we need to call ~warp~'s src_haskell{run} function, which takes a port number and a src_haskell{Wai.Application} to run. This is not rocket science, but it does pose us a problem: we need to define a src_haskell{runApplication} function if we want to actually compile this. At this point, ~fused-effects~'s idioms start diverging from those of ~mtl~.
 
 #+BEGIN_SRC haskell
 -- mtl style

@@ -9,7 +9,7 @@ I’m passionate about a great many things in life. Here is an inexhaustive list
 - *Open source.* I contribute to several open-source projects, the most notable of which are [[http://github.com/github/semantic][~semantic~]] and [[https://github.com/fused-effects][~fused-effects~]], an effect system for Haskell. I also work on [[https://github.com/patrickt][a bunch of other projects]]. Though I don’t think that an open-source license makes a piece of software /a priori/ good, I think that open-source can and should be used to marshal against the effects of capitalism. I care about the [[https://ethicalsource.dev][evolution of ethical software licenses]].
 - *Emacs*. I think that [[https://en.wikipedia.org/wiki/Emacs][Emacs]], for all its flaws, is one of the great achievements in all software. I spend all day inside Emacs and have spent more than a decade fine-tuning [[https://github.com/patrickt/emacs][my setup]].
 - *Mental health advocacy.* I live with type-1 bipolar disorder. Mine is well-managed, but I believe it’s a moral imperative to provide free, universally-accessible mental health (and physical health) treatment to everyone who needs it.
-- *Hip-hop music.* I owe much of who I am to the visionaries and luminaries who’ve used their music to give me a window into their world.
+- *Rap.* I owe much of who I am to the visionaries and luminaries who’ve used their music to give me a window into their world.
 
 ** Nerd Stuff
 
