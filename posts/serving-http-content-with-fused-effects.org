@@ -7,7 +7,7 @@ Yet the number one complaint that Rob and I have heard from prospective users is
 
 This post will take an ad-hoc approach to the problem. While ~fused-effects~ often shines brightest when used in conjunction with user-defined, situationally-appropriate effect types, it's profoundly useful for small, one-off tasks. The syntactic tools provided by ~fused-effects~ itself are often wholly adequate for taming the complexity associated with a complicated function signature or unwieldy API. For simplicity's sake, we won’t bother with request routing, caching, or any of the features associated with apps built on actual web frameworks.
 
-Let's get started. This post is literate Haskell; you can find its source here. We'll call this little web app ~Quad~, in homage to [[https://en.wikipedia.org/wiki/86-DOS][another]] quick-and-dirty software product of yesteryear.
+Let's get started. This post is literate Haskell; you can find its source [[https://github.com/patrickt/patrickt.github.io/blob/develop/posts/serving-http-content-with-fused-effects.org][here]]. We'll call this little web app ~Quad~, in homage to [[https://en.wikipedia.org/wiki/86-DOS][another]] quick-and-dirty software product of yesteryear.
 
 #+BEGIN_SRC haskell :tangle ../src/Web/Quad.hs
 {-# LANGUAGE TypeApplications, OverloadedStrings #-}
