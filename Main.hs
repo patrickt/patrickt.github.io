@@ -1,4 +1,4 @@
-{-# LANGUAGE BlockArguments, OverloadedStrings #-}
+{-# LANGUAGE BlockArguments, TypeApplications, OverloadedStrings #-}
 
 module Main (main) where
 
@@ -39,6 +39,10 @@ main = hakyll do
         >>= loadAndApplyTemplate "templates/archive.html" archiveCtx
         >>= loadAndApplyTemplate "templates/default.html" archiveCtx
         >>= relativizeUrls
+
+  create ["CNAME"] $ do
+    route idRoute
+    compile $ makeItem @String "blog.sumtypeofway.com"
 
   match "about.org" do
     route $ setExtension "html"
