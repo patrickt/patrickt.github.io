@@ -41,7 +41,7 @@ type Application
   -> IO ResponseReceived
 #+END_SRC
 
-This declaration defines an src_haskell{Application} type. Values of type src_haskell{Application} are functions that take two arguments. This first argument is an immutable src_haskell{Request}; the second is a function that takes a src_haskell{Request} and returns an opaque src_haskell{ResponseRecieved} type.
+This declaration defines an src_haskell{Application} type. Values of type src_haskell{Application} are functions that take two arguments. This first argument is an immutable src_haskell{Request}; the second is a function that takes a src_haskell{Response} and returns an opaque src_haskell{ResponseRecieved} type.
 
 We access the properties of the current request through accessors provided by ~Network.Wai~, and we yield a ~ResponseReceived~ by constructing a src_haskell{Response} datum and passing it to the provided function. This means that whatever effectful abstraction we choose, the result of interpreting an effectful action will be an ~Application~---a function type that we pass into our chosen HTTP server. Our task now is to identify which effects we will use to pair a type provided by ~wai~ with its corresponding capability:
 
