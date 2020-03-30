@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+  type: git
+  location: https://github.com/jez/pandoc-sidenote
+  tag: 8cf50717678cc32069e93f65603acf34a6f4d244
