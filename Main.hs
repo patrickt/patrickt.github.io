@@ -73,11 +73,11 @@ main = hakyll do
   version "redirects" $ createRedirects
     [ ("an-introduction-to-recursion-schemes/index.html", "/posts/introduction-to-recursion-schemes.html")
     , ("recursion-schemes-part-2/index.html", "/posts/recursion-schemes-part-2.html")
-    , ("recursion-schemes-part-iii-folds-in-context/index.html", "posts/recursion-schemes-part-3.html")
-    , ("recursion-schemes-part-iv-time-is-of-the-essence/index.html", "posts/recursion-schemes-part-4.html")
-    , ("recursion-schemes-part-41-2-better-living-through-base-functors/index.html", "posts/recursion-schemes-part-4-point-5.html")
-    , ("recursion-schemes-part-v/index.html", "posts/recursion-schemes-part-5.html")
-    , ("recursion-schemes-part-6-comonads-composition-and-generality/index.html", "posts/recursion-schemes-part-6.html")
+    , ("recursion-schemes-part-iii-folds-in-context/index.html", "/posts/recursion-schemes-part-3.html")
+    , ("recursion-schemes-part-iv-time-is-of-the-essence/index.html", "/posts/recursion-schemes-part-4.html")
+    , ("recursion-schemes-part-41-2-better-living-through-base-functors/index.html", "/posts/recursion-schemes-part-4-point-5.html")
+    , ("recursion-schemes-part-v/index.html", "/posts/recursion-schemes-part-5.html")
+    , ("recursion-schemes-part-6-comonads-composition-and-generality/index.html", "/posts/recursion-schemes-part-6.html")
     , ("fluent-polymorphism-with-visible-type-applications/index.html", "/posts/fluent-polymorphism-type-applications.html")
     ]
 
