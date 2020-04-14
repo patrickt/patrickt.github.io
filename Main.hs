@@ -8,7 +8,6 @@ module Main
 where
 
 import Hakyll
-import Text.Pandoc.Options
 import Text.Pandoc.SideNote
 
 main :: IO ()
@@ -85,6 +84,4 @@ main = hakyll do
       ]
 
 customPandoc :: Compiler (Item String)
-customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions writerOptions usingSideNotes
-  where
-    writerOptions = defaultHakyllReaderOptions
+customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions usingSideNotes
