@@ -16,6 +16,9 @@ main = hakyll do
   match "vendor/tufte-css/tufte.css" do
     route idRoute
     compile compressCssCompiler
+  match "et-book/**" do
+    route idRoute
+    compile getResourceLBS
   match "css/*" $ compile compressCssCompiler
   create ["stylesheet.css"] do
     route idRoute
