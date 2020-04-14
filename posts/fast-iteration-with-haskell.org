@@ -77,7 +77,7 @@ As an aside, I strongly recommend against using the ~default-extensions~ feature
 
 On a long enough timeline, a long-running Haskell process will crash. This is inevitable; anything can come down a network connection, and indeed it often does. Be sure that your operational setup anticipates this and takes appropriate action, whether that's an immediate restart or some deeper error reporting.
 
-Haskell's support for stack traces in production is shaky, unless you're willing to take the performance hit associated with ~-prof -xc~. Until the Haskell ecosystem gets a more compelling answer, I'd recommend that any long-running Haskell service log extensively to whatever third-party logging system you use. Libraries like ~fused-effects-profile~ can provide many of the benefits of a ~-prof~ compilation without the laptop-warming work of recompiling every dependency. Judicious use of the ~GHC.Stack~ module can often recover stack traces even without profiling builds.
+Haskell's support for stack traces in production is shaky, unless you're willing to take the performance hit associated with ~-prof -xc~. Until the Haskell ecosystem gets a more compelling answer, I'd recommend that any long-running Haskell service log extensively to whatever third-party logging system you use. Libraries like ~fused-effects-profile~ can provide many of the benefits of a ~-prof~ compilation without the laptop-warming work of recompiling every dependency. Judicious use of the[[https://hackage.haskell.org/package/base-4.12.0.0/docs/GHC-Stack.html][~GHC.Stack~]] module can often recover stack traces even without profiling builds.
 
 ** Build polyglot systems. Not everything has to be in Haskell.
 
