@@ -138,7 +138,7 @@ a given numeric literal to a concrete type such as ~Int~, ~Integer~,
 or ~Double~, its type is polymorphic: that ~100~ can stand for any
 type[fn:7] that implements the ~Num~ interface.
 
-#+BEGIN_EXAMPLE haskell
+#+BEGIN_EXAMPLE
 λ :t id @Int32 100
 id @Int32 100 :: Int32
 #+END_EXAMPLE
@@ -149,7 +149,7 @@ literal (type applications only work in function contexts), this
 hardly seems a benefit over using an explicit type signature, no
 call to ~id~ required:
 
-#+BEGIN_EXAMPLE haskell
+#+BEGIN_EXAMPLE
 λ :t (100 :: Int32)
 100 :: Int32
 #+END_EXAMPLE
