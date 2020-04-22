@@ -4,3 +4,6 @@
 [submodule "vendor/recschemes"]
 	path = vendor/recschemes
 	url = https://github.com/patrickt/recschemes.git
+[submodule "vendor/emacs"]
+	path = vendor/emacs
+	url = git@github.com:patrickt/emacs.git
