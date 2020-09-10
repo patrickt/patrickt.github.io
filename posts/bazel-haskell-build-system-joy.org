@@ -1,0 +1,122 @@
+---
+title: Bazel, Haskell, and Build-System Joy
+date: 2020-09-10
+---
+
+#+TITLE: Bazel, Haskell, and Build-System Joy
+#+DATE: 2020-09-10
+#+PROPERTY: header-args :exports code
+
+As part of my day job at GitHub, I work on the [[https://github.com/github/semantic][~semantic~]] program analysis toolkit. It’s both a lot of fun and a lot of Haskell: we clock around 17,000 lines of Haskell source, though at times it's been as high as 29,000. The project in total has around a hundred direct dependencies, and several hundred resulting indirect ones. Though initially we used [[https://docs.haskellstack.org/en/stable/README/][Stack]] to build ~semantic~, we switched to [[https://cabal.readthedocs.io/en/3.4/][Cabal]] when it gained the ability to sandbox build.
+
+With ~cabal~ and a clean build environment, ~semantic~ takes between twenty and forty-five minutes to complete. When optimizations are enabled, it can take on the order of hours, especially when rebuilding dependencies with optimizations. And this is fair! Haskell is a complicated language that takes serious computational power to compile. And though ~cabal~ is an excellent and fast-improving tool, it isn’t perfect, especially when applied to large monorepos containing many subprojects. Issues we ran into include:
+
+- Little compositionality: though ~common~ stanzas in ~.cabal~ files cut down on repetition within a single file, it’s not possible to share settings or configurations across multiple files.
+- Suboptimal caching: due to the vagaries of Template Haskell, ~cabal~ is very conservative about caching files containing TH splices. This is correct behavior on ~cabal~'s part, but grows tedious when innocuous changes cause rebuilds that we know are unnecessary. The third-party [[https://github.com/haskell-works/cabal-cache][~cabal-cache~]] ameliorated some of this on our CI boxes, but did not address the problem fully. Additionally, any modification to a ~.cabal~ file throws out its associated caches, even when doing something that shouldn’t invalidate existing caches, such as adding a new module.
+- Phasing restrictions: our build process involved generating Haskell data types from text files containing grammar descriptions, and it’s not generally possible to access project-local files during Template Haskell splices.
+- Scriptability: when dealing with large projects, it’s often very convenient to do some limited forms of iteration when specifying build configurations, and the pure-text format of ~.cabal~ files precludes this.
+- Reliable REPLs: in order to yield a REPL capable of loading files without first compiling the entire project, we required a complicated and brittle [[https://github.com/github/semantic/blob/master/script/ghci-flags][bash script]].
+- Convenience: compared to other languages in which you can just drop new source files and have them picked up by the compiler, ~cabal~ requires you to list them explicitly. While explicit is very often better than implicit, the case of adding a new module to a project is so common that editing ~.cabal~ files every time becomes tedious.
+
+As you can imagine, living with hour-long CI cycles was not an indefinitely tenable situation. But I think the issue of long CI cycles goes deeper than mere inconvenience: I believe that we as software developers have an ethical duty to keep build times and CI times down. We live in a world where carbon emissions have created, at least in part, a climate so troubled that the west coast of the United States is [[https://www.nytimes.com/2020/09/09/us/fires-oregon-california-live-updates.html][destroying human lives]], where island populations are being displaced due to [[https://www.theguardian.com/environment/georgemonbiot/2009/may/07/monbiot-climate-change-evacuation][rising sea levels]], and where our [[https://twitter.com/zei_squirrel/status/1304054561112559617][leaders refuse to take action]]. Letting Travis or CircleCI or GitHub Actions do unnecessary work, in a world where [[https://ourworld.unu.edu/en/a-growing-digital-waste-cloud][cloud computing consumes more energy]] than entire nations, should be just as unacceptable as leaving a car running overnight for some convenience in the morning. Though truly handling climate change must happen at the corporate and national level rather than the level of the individual, this doesn’t change the fact that the planet’s resources are finite, and that rhetoric is best backed up by action.
+
+I also believe that very few people[fn:1] are truly happy with their build tool. I certainly haven’t been, anyway. To name but a few: the shortcomings of ~make~ have been documented for longer than I’ve been alive; ~xcodebuild~ only works on macOS/iOS targets; CMake is powerful but has no interoperability with ~cabal~. This suggests to me that, given a large project, no build system will be perfect for all people. This doesn’t make the quest for a better build system useless, but should also inform the engineer-voice that demands perfection.
+
+Wearied by hour-long builds, both on CI and locally, I looked around for alternative build solutions that might ease that weariness. I settled on [[https://bazel.build][Bazel]], with the [[https://haskell.build][~rules_haskell~]] toolkit designed by the fine folks at [[https://www.tweag.io][Tweag]]. I’m happy to report that the experience was brilliant: if it’s possible for a build system to produce joy, Bazel and ~rules_haskell~ do. What follows is a brief overview of the Bazel experience, and the process of porting a large, multi-project repository to support either ~cabal build~ or ~bazel build~.
+
+[fn:1] Excluding Rust programmers, who get to use the truly excellent ~cargo~, and who seem to be very happy with it.
+
+* The Process
+
+Beginning a new Bazel project, or converting from Cabal, requires starting with the ~WORKSPACE~ file. The ~WORKSPACE~ specifies the root of the current project, downloads and sets up GHC, and is the only place where external dependencies—such as those downloaded from Hackage—are specified. Targets are specified per-project in ~BUILD.bazel~ files, each of which refers as needed to external dependencies defined in the ~WORKSPACE~. The language used to specify these ~.bzl~ files is known as [[https://docs.bazel.build/versions/master/skylark/language.html][Starlark]], and is a subset of Python that discourages mutability and iteration—though I’m hardly the world’s biggest fan of Python, I found Starlark very pleasant to use, as its chosen subset of Python is strict enough to disallow most of the things I find egregious. Once the ~WORKSPACE~ file is set up, the process of conversion becomes specifying per-project library and executable targets in the ~BUILD.bazel~ file present in each project within the monorepo.
+
+** Whither Cabal Dependencies?
+
+As I mentioned earlier, there are several hundred direct and indirect dependencies across all subprojects in the ~semantic~ monorepo. Each of these dependencies has to be declared and made available as a build target, specified in the ~WORKSPACE~. There are three options for specifying dependencies on Hackage projects:
+- Specify them all manually by downloading them with [[https://docs.bazel.build/versions/master/repo/http.html][~http_archive~]] and [[https://api.haskell.build/haskell/cabal.html#haskell_cabal_library][~haskell_cabal_library~]], doing so would be tedious beyond words, especially given that we’d have to declare dependencies for each package.
+- Use the Nix expression language, in combination with the [[https://github.com/tweag/rules_nixpkgs][~rules_nixpkgs~]] ruleset, and transform Nix derivations into Bazel targets.
+- Pin to a particular [[https://www.stackage.org][Stackage]] release, specifying non-Stackage dependencies with a YAML file in the project root.
+
+Though Nix has tremendous merit, especially when corralling system dependencies, it’s still an unconventional choice in industry, and I deemed it politically unattainable to introduce not just one but two new frameworks for builds. As such, I chose to build against a Stackage release.
+
+** Code Generation: It Matters
+
+Because maintaining syntax trees by hand was much too onerous, my coworker [[https://twitter.com/aymannadeem][Ayman]] swooped in and wrote Template Haskell splices that generate syntax types from a [[https://tree-sitter.github.io/tree-sitter/][tree-sitter]] JSON description of the grammar. This works well, but hinges on the ability to read said grammar descriptions from the filesystem. This was a fraught process in Cabal, relying on autogenerated ~Paths_~ modules providing access to files specified in the ~data-files~ setting in each project’s ~.cabal~ file, and only happened to work by accident: were ~semantic~ uploaded to Hackage, no one would be able to use it as a dependency, as ~cabal~ would be unable to find the required file. As it is, this happened to work because our downstream clients use a pinned Git hash in their ~cabal.project~ to pull in ~semantic~ as a dependency; because ~cabal~ checks out the whole repository in this case, the tree-sitter files happen to be in the correct case.
+
+Bazel and ~rules_haskell~ take a more principled approach to this. Rather than calling pre-provided functions to determine the locations of these JSON files, we make the build system take care of finding them, by declaring that each language package has an explicit dependency on said file. We can pass in the location of this file as a preprocessor flag to the build process, which is then substituted using the ~CPP~ extension to Haskell. This doesn’t work perfectly---there’s an [[https://github.com/tweag/rules_haskell/issues/1337][incorrect interaction]] when invoking a REPL on a language package in question---but suffices in almost all cases, and we were able to use it in tandem with the ~cabal~ methodology (since not all of our systems are as yet migrated).
+
+** A Script of One’s Own
+
+As I mentioned above, the ability to generate code, as well as the result of said generation, hinges on the availability and the specific version of the language description in question. Though these JSON files are available in the Hackage packages we’ve uploaded, Bazel needs to know more information about them: we have to not only provide a Haskell library target, but also a target for the JSON file in question. Since our code is very sensitive to grammar changes, we need to be able to specify grammar versions very precisely, all the time declaring both the Haskell library targets and JSON targets. These target specifications are complicated when written out by hand, but vary very little between language packages. As such, it was easy to specify a shared rule:
+
+#+begin_src python
+tree_sitter_node_types_hackage(
+    name = "tree-sitter-go",
+    sha256 = "72a1d3bdb2883ace3f2de3a0f754c680908489e984503f1a66243ad74dc2887e",
+    version = "0.5.0.2",
+)
+#+end_src
+
+This function compiles down to an ~http_archive~ call targeting a particular grammar version, and that does the required string interpolation to instruct the package in question how to expose both the Haskell and JSON targets.
+
+#+begin_src python
+_tree_sitter_language_build = """
+package(default_visibility = ["//visibility:public"])
+
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+exports_files(glob(["**/node-types.json"]))
+
+alias(
+   name = "src/node-types.json",
+   actual = "{node_types_path}",
+)
+
+haskell_cabal_library(
+    name = "{name}",
+    version = "{version}",
+    srcs = glob(["**"]),
+    deps = packages["{name}"].deps,
+    visibility = ["//visibility:public"],
+)
+
+filegroup(name = "corpus", srcs = glob(["**/corpus/*.txt"]))
+"""
+
+def tree_sitter_node_types_hackage(name, version, sha256, node_types_path = ""):
+    """Download a tree-sitter language package from Hackage and build/expose its library and corpus."""
+
+    if node_types_path == "":
+        node_types_path = ":vendor/{}/src/node-types.json".format(name)
+
+    info = {
+        "name": name,
+        "version": version,
+        "node_types_path": node_types_path,
+    }
+    http_archive(
+        name = name,
+        build_file_content = _tree_sitter_language_build.format(**info),
+        urls = ["https://hackage.haskell.org/package/{name}-{version}/{name}-{version}.tar.gz".format(**info)],
+        strip_prefix = "{name}-{version}".format(**info),
+        sha256 = sha256,
+    )
+#+end_src
+
+* My Conclusions
+
+The process of enabling Bazel on ~semantic~ took about two person-weeks of work. Overall, I’m tremendously pleased with how well Bazel and ~rules_haskell~ worked out for ~semantic~. Here is an inexhaustive list of the things that have brought me joy:
+
+- Content-based caching is superlative. It’s so refreshing to be able to mess around on feature branches and then, when popping back to the main branch, avoid having to rebuild a project I’ve already encountered in the past.
+- ~ghcide~ tooling worked straight out of the box. I had a hard time believing it actually worked, but it does: IDE support across the project is now significantly more reliable.
+- Being able to share functions and constants across different ~BUILD.bazel~ files is revelatory. No longer do I have to remember the correct set of GHC options for exectuables/libraries/tests: I define them in a common build file, import them explicitly, and pass them as ~ghc_options~ flags to ~rules_haskell~ functions.
+- Bazel tooling is excellent, particularly its editor integration, the [[https://github.com/bazelbuild/buildtools][~buildifier~]] formatter, and the [[https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md][~buildozer~]] tool for batch file changes. ~buildifier~ in particular is very opinionated, happily keeping your imports list alphabetized and deduped. As someone who’s spent more time than I’d like hand-formatting ~.cabal~ files, this was and is truly pleasant.
+- The documentation, both [[https://rules-haskell.readthedocs.io/en/latest/][for ~rules_haskell~]] and for [[https://docs.bazel.build/versions/3.5.0/bazel-overview.html][Bazel itself]], is consistently excellent. Indeed, DuckDuckGo contains a [[https://duckduckgo.com/bang][bang]] that allows searching Bazel docs directly from your browser’s address bar.
+- As developers, we no longer need to track GHC versioning ourselves: it’s specified in the ~WORKSPACE~ and exists independently from whatever ~ghc~ or ~cabal~ you might have installed.
+- Lastly, but most importantly: the ~rules_haskell~ team are kind and generous with their time. They’ve been tremendously responsive to our needs, and are quick to fix bugs we’ve encountered. In a world where many open-source maintainers are burnt out[fn:2], it’s a pleasure to interact with people with approaches grounded in patience and empathy.
+
+If you’re curious about how ~rules_haskell~ looks in practice, you can check the [[https://github.com/github/semantic/blob/master/semantic/BUILD.bazel][build files in ~semantic~]], or repositories like Digital Asset’s [[https://github.com/digital-asset/daml][~daml~]] and TreeTide’s [[https://github.com/TreeTide/underhood][~underhood~]]. Consulting existing projects was, in my experience, the best way to get a sense for preferred idioms and approaches.
+
+Though I don’t use Bazel and ~rules_haskell~ everywhere---for simple one-off projects with one or two targets and few dependencies, I still use ~cabal~---I’m fully on board, and truly enamored, with the power and composability it provides. Though it’s not perfect (there are some bugs on our CI machines holding us back, and fixing per-language REPLs depends on the as-yet-unimplemented ~th_deps~ feature), I don’t know of any other build system that balances a sensible execution model with the extensibility and customizability that large projects’ builds always end up needing. Simply put, it’s joy-inducing, and if you work on a large Haskell codebase you owe it to yourself to try the Bazel life.
+
+[fn:2] (understandably so, given the thankless and ill-funded task that is maintaining any open source project of note)
