@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <meta charset="utf-8" />
+        <meta name="author" content="Patrick Thomson" />
+        <link rel="stylesheet" type="text/css" href="../stylesheet.css" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>
+            adventures in uncertainty: Bazel, Haskell, and Build-System Joy
+        </title>
+    </head>
+
+
+    <body>
+        <div id="header">
+            <a href="../">home</a>
+            <a href="../archive.html">archive</a>
+            <a href="../about.html">about</a>
+            <a href="../contact.html">contact</a>
+        </div>
+        <div id="content">
+            <article>
+                <h1>Bazel, Haskell, and Build-System Joy</h1>
+                
+                  <h2>2020-09-10</h2>
+                
+                <section>
+                    <p>As part of my day job at GitHub, I work on the <a href="https://github.com/github/semantic"><code>semantic</code></a> program analysis toolkit. It’s both a lot of fun and a lot of Haskell: we clock around 17,000 lines of Haskell source, though at times it’s been as high as 29,000. The project in total has around a hundred direct dependencies, and several hundred resulting indirect ones. Though initially we used <a href="https://docs.haskellstack.org/en/stable/README/">Stack</a> to build <code>semantic</code>, we switched to <a href="https://cabal.readthedocs.io/en/3.4/">Cabal</a> when it gained the ability to sandbox build.</p>
+<p>With <code>cabal</code> and a clean build environment, <code>semantic</code> takes between twenty and forty-five minutes to complete. When optimizations are enabled, it can take on the order of hours, especially when rebuilding dependencies with optimizations. And this is fair! Haskell is a complicated language that takes serious computational power to compile. And though <code>cabal</code> is an excellent and fast-improving tool, it isn’t perfect, especially when applied to large monorepos containing many subprojects. Issues we ran into include:</p>
+<ul>
+<li>Little compositionality: though <code>common</code> stanzas in <code>.cabal</code> files cut down on repetition within a single file, it’s not possible to share settings or configurations across multiple files.</li>
+<li>Suboptimal caching: due to the vagaries of Template Haskell, <code>cabal</code> is very conservative about caching files containing TH splices. This is correct behavior on <code>cabal</code>’s part, but grows tedious when innocuous changes cause rebuilds that we know are unnecessary. The third-party <a href="https://github.com/haskell-works/cabal-cache"><code>cabal-cache</code></a> ameliorated some of this on our CI boxes, but did not address the problem fully. Additionally, any modification to a <code>.cabal</code> file throws out its associated caches, even when doing something that shouldn’t invalidate existing caches, such as adding a new module.</li>
+<li>Phasing restrictions: our build process involved generating Haskell data types from text files containing grammar descriptions, and it’s not generally possible to access project-local files during Template Haskell splices.</li>
+<li>Scriptability: when dealing with large projects, it’s often very convenient to do some limited forms of iteration when specifying build configurations, and the pure-text format of <code>.cabal</code> files precludes this.</li>
+<li>Reliable REPLs: in order to yield a REPL capable of loading files without first compiling the entire project, we required a complicated and brittle <a href="https://github.com/github/semantic/blob/master/script/ghci-flags">bash script</a>.</li>
+<li>Convenience: compared to other languages in which you can just drop new source files and have them picked up by the compiler, <code>cabal</code> requires you to list them explicitly. While explicit is very often better than implicit, the case of adding a new module to a project is so common that editing <code>.cabal</code> files every time becomes tedious.</li>
+</ul>
+<p>As you can imagine, living with hour-long CI cycles was not an indefinitely tenable situation. But I think the issue of long CI cycles goes deeper than mere inconvenience: I believe that we as software developers have an ethical duty to keep build times and CI times down. We live in a world where carbon emissions have created, at least in part, a climate so troubled that the west coast of the United States is <a href="https://www.nytimes.com/2020/09/09/us/fires-oregon-california-live-updates.html">destroying human lives</a>, where island populations are being displaced due to <a href="https://www.theguardian.com/environment/georgemonbiot/2009/may/07/monbiot-climate-change-evacuation">rising sea levels</a>, and where our <a href="https://twitter.com/zei_squirrel/status/1304054561112559617">leaders refuse to take action</a>. Letting Travis or CircleCI or GitHub Actions do unnecessary work, in a world where <a href="https://ourworld.unu.edu/en/a-growing-digital-waste-cloud">cloud computing consumes more energy</a> than entire nations, should be just as unacceptable as leaving a car running overnight for some convenience in the morning. Though truly handling climate change must happen at the corporate and national level rather than the level of the individual, this doesn’t change the fact that the planet’s resources are finite, and that rhetoric is best backed up by action.</p>
+<p>I also believe that very few people<span><label for="sn-0" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-0" class="margin-toggle" /><span class="sidenote">Excluding Rust programmers, who get to use the truly excellent <code>cargo</code>, and who seem to be very happy with it.<br />
+<br />
+</span></span> are truly happy with their build tool. I certainly haven’t been, anyway. To name but a few: the shortcomings of <code>make</code> have been documented for longer than I’ve been alive; <code>xcodebuild</code> only works on macOS/iOS targets; CMake is powerful but has no interoperability with <code>cabal</code>. This suggests to me that, given a large project, no build system will be perfect for all people. This doesn’t make the quest for a better build system useless, but should also inform the engineer-voice that demands perfection.</p>
+<p>Wearied by hour-long builds, both on CI and locally, I looked around for alternative build solutions that might ease that weariness. I settled on <a href="https://bazel.build">Bazel</a>, with the <a href="https://haskell.build"><code>rules_haskell</code></a> toolkit designed by the fine folks at <a href="https://www.tweag.io">Tweag</a>. I’m happy to report that the experience was brilliant: if it’s possible for a build system to produce joy, Bazel and <code>rules_haskell</code> do. What follows is a brief overview of the Bazel experience, and the process of porting a large, multi-project repository to support either <code>cabal build</code> or <code>bazel build</code>.</p>
+<h1 id="the-process">The Process</h1>
+<p>Beginning a new Bazel project, or converting from Cabal, requires starting with the <code>WORKSPACE</code> file. The <code>WORKSPACE</code> specifies the root of the current project, downloads and sets up GHC, and is the only place where external dependencies—such as those downloaded from Hackage—are specified. Targets are specified per-project in <code>BUILD.bazel</code> files, each of which refers as needed to external dependencies defined in the <code>WORKSPACE</code>. The language used to specify these <code>.bzl</code> files is known as <a href="https://docs.bazel.build/versions/master/skylark/language.html">Starlark</a>, and is a subset of Python that discourages mutability and iteration—though I’m hardly the world’s biggest fan of Python, I found Starlark very pleasant to use, as its chosen subset of Python is strict enough to disallow most of the things I find egregious. Once the <code>WORKSPACE</code> file is set up, the process of conversion becomes specifying per-project library and executable targets in the <code>BUILD.bazel</code> file present in each project within the monorepo.</p>
+<h2 id="whither-cabal-dependencies">Whither Cabal Dependencies?</h2>
+<p>As I mentioned earlier, there are several hundred direct and indirect dependencies across all subprojects in the <code>semantic</code> monorepo. Each of these dependencies has to be declared and made available as a build target, specified in the <code>WORKSPACE</code>. There are three options for specifying dependencies on Hackage projects:</p>
+<ul>
+<li>Specify them all manually by downloading them with <a href="https://docs.bazel.build/versions/master/repo/http.html"><code>http_archive</code></a> and <a href="https://api.haskell.build/haskell/cabal.html#haskell_cabal_library"><code>haskell_cabal_library</code></a>, doing so would be tedious beyond words, especially given that we’d have to declare dependencies for each package.</li>
+<li>Use the Nix expression language, in combination with the <a href="https://github.com/tweag/rules_nixpkgs"><code>rules_nixpkgs</code></a> ruleset, and transform Nix derivations into Bazel targets.</li>
+<li>Pin to a particular <a href="https://www.stackage.org">Stackage</a> release, specifying non-Stackage dependencies with a YAML file in the project root.</li>
+</ul>
+<p>Though Nix has tremendous merit, especially when corralling system dependencies, it’s still an unconventional choice in industry, and I deemed it politically unattainable to introduce not just one but two new frameworks for builds. As such, I chose to build against a Stackage release.</p>
+<h2 id="code-generation-it-matters">Code Generation: It Matters</h2>
+<p>Because maintaining syntax trees by hand was much too onerous, my coworker <a href="https://twitter.com/aymannadeem">Ayman</a> swooped in and wrote Template Haskell splices that generate syntax types from a <a href="https://tree-sitter.github.io/tree-sitter/">tree-sitter</a> JSON description of the grammar. This works well, but hinges on the ability to read said grammar descriptions from the filesystem. This was a fraught process in Cabal, relying on autogenerated <code>Paths_</code> modules providing access to files specified in the <code>data-files</code> setting in each project’s <code>.cabal</code> file, and only happened to work by accident: were <code>semantic</code> uploaded to Hackage, no one would be able to use it as a dependency, as <code>cabal</code> would be unable to find the required file. As it is, this happened to work because our downstream clients use a pinned Git hash in their <code>cabal.project</code> to pull in <code>semantic</code> as a dependency; because <code>cabal</code> checks out the whole repository in this case, the tree-sitter files happen to be in the correct case.</p>
+<p>Bazel and <code>rules_haskell</code> take a more principled approach to this. Rather than calling pre-provided functions to determine the locations of these JSON files, we make the build system take care of finding them, by declaring that each language package has an explicit dependency on said file. We can pass in the location of this file as a preprocessor flag to the build process, which is then substituted using the <code>CPP</code> extension to Haskell. This doesn’t work perfectly—there’s an <a href="https://github.com/tweag/rules_haskell/issues/1337">incorrect interaction</a> when invoking a REPL on a language package in question—but suffices in almost all cases, and we were able to use it in tandem with the <code>cabal</code> methodology (since not all of our systems are as yet migrated).</p>
+<h2 id="a-script-of-ones-own">A Script of One’s Own</h2>
+<p>As I mentioned above, the ability to generate code, as well as the result of said generation, hinges on the availability and the specific version of the language description in question. Though these JSON files are available in the Hackage packages we’ve uploaded, Bazel needs to know more information about them: we have to not only provide a Haskell library target, but also a target for the JSON file in question. Since our code is very sensitive to grammar changes, we need to be able to specify grammar versions very precisely, all the time declaring both the Haskell library targets and JSON targets. These target specifications are complicated when written out by hand, but vary very little between language packages. As such, it was easy to specify a shared rule:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1"></a>tree_sitter_node_types_hackage(</span>
+<span id="cb1-2"><a href="#cb1-2"></a>    name <span class="op">=</span> <span class="st">&quot;tree-sitter-go&quot;</span>,</span>
+<span id="cb1-3"><a href="#cb1-3"></a>    sha256 <span class="op">=</span> <span class="st">&quot;72a1d3bdb2883ace3f2de3a0f754c680908489e984503f1a66243ad74dc2887e&quot;</span>,</span>
+<span id="cb1-4"><a href="#cb1-4"></a>    version <span class="op">=</span> <span class="st">&quot;0.5.0.2&quot;</span>,</span>
+<span id="cb1-5"><a href="#cb1-5"></a>)</span></code></pre></div>
+<p>This function compiles down to an <code>http_archive</code> call targeting a particular grammar version, and that does the required string interpolation to instruct the package in question how to expose both the Haskell and JSON targets.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1"></a>_tree_sitter_language_build <span class="op">=</span> <span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2"></a><span class="st">package(default_visibility = [&quot;//visibility:public&quot;])</span></span>
+<span id="cb2-3"><a href="#cb2-3"></a></span>
+<span id="cb2-4"><a href="#cb2-4"></a><span class="st">load(&quot;@rules_haskell//haskell:cabal.bzl&quot;, &quot;haskell_cabal_library&quot;)</span></span>
+<span id="cb2-5"><a href="#cb2-5"></a><span class="st">load(&quot;@stackage//:packages.bzl&quot;, &quot;packages&quot;)</span></span>
+<span id="cb2-6"><a href="#cb2-6"></a><span class="st">exports_files(glob([&quot;**/node-types.json&quot;]))</span></span>
+<span id="cb2-7"><a href="#cb2-7"></a></span>
+<span id="cb2-8"><a href="#cb2-8"></a><span class="st">alias(</span></span>
+<span id="cb2-9"><a href="#cb2-9"></a><span class="st">   name = &quot;src/node-types.json&quot;,</span></span>
+<span id="cb2-10"><a href="#cb2-10"></a><span class="st">   actual = &quot;</span><span class="sc">{node_types_path}</span><span class="st">&quot;,</span></span>
+<span id="cb2-11"><a href="#cb2-11"></a><span class="st">)</span></span>
+<span id="cb2-12"><a href="#cb2-12"></a></span>
+<span id="cb2-13"><a href="#cb2-13"></a><span class="st">haskell_cabal_library(</span></span>
+<span id="cb2-14"><a href="#cb2-14"></a><span class="st">    name = &quot;</span><span class="sc">{name}</span><span class="st">&quot;,</span></span>
+<span id="cb2-15"><a href="#cb2-15"></a><span class="st">    version = &quot;</span><span class="sc">{version}</span><span class="st">&quot;,</span></span>
+<span id="cb2-16"><a href="#cb2-16"></a><span class="st">    srcs = glob([&quot;**&quot;]),</span></span>
+<span id="cb2-17"><a href="#cb2-17"></a><span class="st">    deps = packages[&quot;</span><span class="sc">{name}</span><span class="st">&quot;].deps,</span></span>
+<span id="cb2-18"><a href="#cb2-18"></a><span class="st">    visibility = [&quot;//visibility:public&quot;],</span></span>
+<span id="cb2-19"><a href="#cb2-19"></a><span class="st">)</span></span>
+<span id="cb2-20"><a href="#cb2-20"></a></span>
+<span id="cb2-21"><a href="#cb2-21"></a><span class="st">filegroup(name = &quot;corpus&quot;, srcs = glob([&quot;**/corpus/*.txt&quot;]))</span></span>
+<span id="cb2-22"><a href="#cb2-22"></a><span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb2-23"><a href="#cb2-23"></a></span>
+<span id="cb2-24"><a href="#cb2-24"></a><span class="kw">def</span> tree_sitter_node_types_hackage(name, version, sha256, node_types_path <span class="op">=</span> <span class="st">&quot;&quot;</span>):</span>
+<span id="cb2-25"><a href="#cb2-25"></a>    <span class="co">&quot;&quot;&quot;Download a tree-sitter language package from Hackage and build/expose its library and corpus.&quot;&quot;&quot;</span></span>
+<span id="cb2-26"><a href="#cb2-26"></a></span>
+<span id="cb2-27"><a href="#cb2-27"></a>    <span class="cf">if</span> node_types_path <span class="op">==</span> <span class="st">&quot;&quot;</span>:</span>
+<span id="cb2-28"><a href="#cb2-28"></a>        node_types_path <span class="op">=</span> <span class="st">&quot;:vendor/</span><span class="sc">{}</span><span class="st">/src/node-types.json&quot;</span>.<span class="bu">format</span>(name)</span>
+<span id="cb2-29"><a href="#cb2-29"></a></span>
+<span id="cb2-30"><a href="#cb2-30"></a>    info <span class="op">=</span> {</span>
+<span id="cb2-31"><a href="#cb2-31"></a>        <span class="st">&quot;name&quot;</span>: name,</span>
+<span id="cb2-32"><a href="#cb2-32"></a>        <span class="st">&quot;version&quot;</span>: version,</span>
+<span id="cb2-33"><a href="#cb2-33"></a>        <span class="st">&quot;node_types_path&quot;</span>: node_types_path,</span>
+<span id="cb2-34"><a href="#cb2-34"></a>    }</span>
+<span id="cb2-35"><a href="#cb2-35"></a>    http_archive(</span>
+<span id="cb2-36"><a href="#cb2-36"></a>        name <span class="op">=</span> name,</span>
+<span id="cb2-37"><a href="#cb2-37"></a>        build_file_content <span class="op">=</span> _tree_sitter_language_build.<span class="bu">format</span>(<span class="op">**</span>info),</span>
+<span id="cb2-38"><a href="#cb2-38"></a>        urls <span class="op">=</span> [<span class="st">&quot;https://hackage.haskell.org/package/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">.tar.gz&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info)],</span>
+<span id="cb2-39"><a href="#cb2-39"></a>        strip_prefix <span class="op">=</span> <span class="st">&quot;</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info),</span>
+<span id="cb2-40"><a href="#cb2-40"></a>        sha256 <span class="op">=</span> sha256,</span>
+<span id="cb2-41"><a href="#cb2-41"></a>    )</span></code></pre></div>
+<h1 id="my-conclusions">My Conclusions</h1>
+<p>The process of enabling Bazel on <code>semantic</code> took about two person-weeks of work. Overall, I’m tremendously pleased with how well Bazel and <code>rules_haskell</code> worked out for <code>semantic</code>. Here is an inexhaustive list of the things that have brought me joy:</p>
+<ul>
+<li>Content-based caching is superlative. It’s so refreshing to be able to mess around on feature branches and then, when popping back to the main branch, avoid having to rebuild a project I’ve already encountered in the past.</li>
+<li><code>ghcide</code> tooling worked straight out of the box. I had a hard time believing it actually worked, but it does: IDE support across the project is now significantly more reliable.</li>
+<li>Being able to share functions and constants across different <code>BUILD.bazel</code> files is revelatory. No longer do I have to remember the correct set of GHC options for exectuables/libraries/tests: I define them in a common build file, import them explicitly, and pass them as <code>ghc_options</code> flags to <code>rules_haskell</code> functions.</li>
+<li>Bazel tooling is excellent, particularly its editor integration, the <a href="https://github.com/bazelbuild/buildtools"><code>buildifier</code></a> formatter, and the <a href="https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md"><code>buildozer</code></a> tool for batch file changes. <code>buildifier</code> in particular is very opinionated, happily keeping your imports list alphabetized and deduped. As someone who’s spent more time than I’d like hand-formatting <code>.cabal</code> files, this was and is truly pleasant.</li>
+<li>The documentation, both <a href="https://rules-haskell.readthedocs.io/en/latest/">for <code>rules_haskell</code></a> and for <a href="https://docs.bazel.build/versions/3.5.0/bazel-overview.html">Bazel itself</a>, is consistently excellent. Indeed, DuckDuckGo contains a <a href="https://duckduckgo.com/bang">bang</a> that allows searching Bazel docs directly from your browser’s address bar.</li>
+<li>As developers, we no longer need to track GHC versioning ourselves: it’s specified in the <code>WORKSPACE</code> and exists independently from whatever <code>ghc</code> or <code>cabal</code> you might have installed.</li>
+<li>Lastly, but most importantly: the <code>rules_haskell</code> team are kind and generous with their time. They’ve been tremendously responsive to our needs, and are quick to fix bugs we’ve encountered. In a world where many open-source maintainers are burnt out<span><label for="sn-1" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-1" class="margin-toggle" /><span class="sidenote">(understandably so, given the thankless and ill-funded task that is maintaining any open source project of note)<br />
+<br />
+</span></span>, it’s a pleasure to interact with people with approaches grounded in patience and empathy.</li>
+</ul>
+<p>If you’re curious about how <code>rules_haskell</code> looks in practice, you can check the <a href="https://github.com/github/semantic/blob/master/semantic/BUILD.bazel">build files in <code>semantic</code></a>, or repositories like Digital Asset’s <a href="https://github.com/digital-asset/daml"><code>daml</code></a> and TreeTide’s <a href="https://github.com/TreeTide/underhood"><code>underhood</code></a>. Consulting existing projects was, in my experience, the best way to get a sense for preferred idioms and approaches.</p>
+<p>Though I don’t use Bazel and <code>rules_haskell</code> everywhere—for simple one-off projects with one or two targets and few dependencies, I still use <code>cabal</code>—I’m fully on board, and truly enamored, with the power and composability it provides. Though it’s not perfect (there are some bugs on our CI machines holding us back, and fixing per-language REPLs depends on the as-yet-unimplemented <code>th_deps</code> feature), I don’t know of any other build system that balances a sensible execution model with the extensibility and customizability that large projects’ builds always end up needing. Simply put, it’s joy-inducing, and if you work on a large Haskell codebase you owe it to yourself to try the Bazel life.</p>
+                </section>
+            </article>
+        </div>
+    </body>
+
+</html>
