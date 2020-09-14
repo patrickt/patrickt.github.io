@@ -1,4 +1,4 @@
+jobs: 16
+ignore-project: False
+tests: True
 optimization: False
-
-package organic
-  ghc-options: -Werror

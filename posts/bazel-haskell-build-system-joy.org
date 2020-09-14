@@ -6,9 +6,8 @@ date: 2020-09-10
 #+TITLE: Bazel, Haskell, and Build-System Joy
 #+DATE: 2020-09-10
 #+PROPERTY: header-args :exports code
-#+MACRO: numeral @@html:<span class="numeral">$1,$2</span>@@
 
-As part of my day job at GitHub, I work on the [[https://github.com/github/semantic][~semantic~]] program analysis toolkit. It’s a lot of fun and a lot of Haskell: we clock around {{{numeral(17,000)}}} lines of Haskell source, though at times it's been as high as {{{numeral(29,000)}}}. The project in total has around a hundred direct dependencies, and several hundred resulting indirect ones. Though initially we used [[https://docs.haskellstack.org/en/stable/README/][Stack]] to build ~semantic~, we switched to [[https://cabal.readthedocs.io/en/3.4/][Cabal]] when it gained the ability to build within a sandbox.
+As part of my day job at GitHub, I work on the [[https://github.com/github/semantic][~semantic~]] program analysis toolkit. It’s a lot of fun and a lot of Haskell: we clock around *:17,000* lines of Haskell source, though at times it's been as high as *:29,000*. The project in total has around a hundred direct dependencies, and several hundred resulting indirect ones. Though initially we used [[https://docs.haskellstack.org/en/stable/README/][Stack]] to build ~semantic~, we switched to [[https://cabal.readthedocs.io/en/3.4/][Cabal]] when it gained the ability to build within a sandbox.
 
 With ~cabal~ and a clean build environment, ~semantic~ takes between twenty and forty-five minutes to complete. When optimizations are enabled, it can take on the order of hours, especially when rebuilding dependencies with optimizations. And this is fair! Haskell is a complicated language that takes serious computational power to compile. And though Cabal is a versatile and fast-improving tool, it isn’t perfect, especially when applied to large monorepos containing many subprojects. Issues we ran into include:
 

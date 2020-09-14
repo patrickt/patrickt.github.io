@@ -7,6 +7,7 @@ module Main
   )
 where
 
+import Filters
 import Hakyll
 import Text.Pandoc.SideNote
 
@@ -15,16 +16,20 @@ main = hakyll do
   match "vendor/tufte-css/tufte.css" do
     route idRoute
     compile compressCssCompiler
+
   match "et-book/**" do
     route idRoute
     compile getResourceLBS
+
   match "css/*" $ compile compressCssCompiler
+
   create ["stylesheet.css"] do
     route idRoute
     compile do
       tufte <- load "vendor/tufte-css/tufte.css"
       csses <- loadAll "css/*.css"
       makeItem $ unlines $ map itemBody $ tufte : csses
+
   match "posts/*.org" do
     route $ setExtension "html"
     compile $
@@ -32,7 +37,8 @@ main = hakyll do
         >>= saveSnapshot "content"
         >>= loadAndApplyTemplate "templates/default.html" defaultContext
         >>= relativizeUrls
-  create ["archive"] $ do
+
+  create ["archive"] do
     route $ setExtension "html"
     compile do
       posts <- recentFirst =<< loadAll "posts/*"
@@ -44,9 +50,11 @@ main = hakyll do
         >>= loadAndApplyTemplate "templates/archive.html" archiveCtx
         >>= loadAndApplyTemplate "templates/default.html" archiveCtx
         >>= relativizeUrls
-  create ["CNAME"] $ do
+
+  create ["CNAME"] do
     route idRoute
     compile $ makeItem @String "blog.sumtypeofway.com"
+
   match "about.org" do
     route $ setExtension "html"
     compile $
@@ -54,6 +62,7 @@ main = hakyll do
         >>= saveSnapshot "content"
         >>= loadAndApplyTemplate "templates/default.html" (constField "title" "About Me" <> defaultContext)
         >>= relativizeUrls
+
   match "contact.org" do
     route $ setExtension "html"
     compile $
@@ -61,6 +70,7 @@ main = hakyll do
         >>= saveSnapshot "content"
         >>= loadAndApplyTemplate "templates/default.html" (constField "title" "Get in Touch" <> defaultContext)
         >>= relativizeUrls
+
   match "index.html" do
     route idRoute
     compile do
@@ -70,7 +80,9 @@ main = hakyll do
         >>= applyAsTemplate ctx
         >>= loadAndApplyTemplate "templates/default.html" ctx
         >>= relativizeUrls
+
   match "templates/*" $ compile templateCompiler
+
   version "redirects" $
     createRedirects
       [ ("an-introduction-to-recursion-schemes/index.html", "/posts/introduction-to-recursion-schemes.html"),
@@ -84,4 +96,4 @@ main = hakyll do
       ]
 
 customPandoc :: Compiler (Item String)
-customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions usingSideNotes
+customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions (usingSideNotes . usingOldstyleSyntax)
