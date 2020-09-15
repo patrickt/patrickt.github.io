@@ -57,53 +57,53 @@
 <p>Bazel and <code>rules_haskell</code> take a more principled approach to this. Rather than calling pre-provided functions to determine the locations of these JSON files, we make the build system take care of finding them, by declaring that each language package has an explicit dependency on said file. We can pass in the location of this file as a preprocessor flag to the build process, which is then substituted using the <code>CPP</code> extension to Haskell. This doesn’t work perfectly—there’s an <a href="https://github.com/tweag/rules_haskell/issues/1337">incorrect interaction</a> when invoking a REPL on a language package in question—but suffices in almost all cases, and we were able to use it in tandem with the <code>cabal</code> methodology (since not all of our systems are as yet migrated).</p>
 <h2 id="a-script-of-ones-own">A Script of One’s Own</h2>
 <p>As I mentioned above, the ability to generate code, as well as the result of said generation, hinges on the availability and the specific version of the language description in question. Though these JSON files are available in the Hackage packages we’ve uploaded, Bazel needs to know more information about them: we have to not only provide a Haskell library target, but also a target for the JSON file in question. Since our code is very sensitive to grammar changes, we need to be able to specify grammar versions very precisely, all the time declaring both the Haskell library targets and JSON targets. These target specifications are complicated when written out by hand, but vary very little between language packages. As such, it was easy to specify a shared rule:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1"></a>tree_sitter_node_types_hackage(</span>
-<span id="cb1-2"><a href="#cb1-2"></a>    name <span class="op">=</span> <span class="st">&quot;tree-sitter-go&quot;</span>,</span>
-<span id="cb1-3"><a href="#cb1-3"></a>    sha256 <span class="op">=</span> <span class="st">&quot;72a1d3bdb2883ace3f2de3a0f754c680908489e984503f1a66243ad74dc2887e&quot;</span>,</span>
-<span id="cb1-4"><a href="#cb1-4"></a>    version <span class="op">=</span> <span class="st">&quot;0.5.0.2&quot;</span>,</span>
-<span id="cb1-5"><a href="#cb1-5"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a>tree_sitter_node_types_hackage(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true"></a>    name <span class="op">=</span> <span class="st">&quot;tree-sitter-go&quot;</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true"></a>    sha256 <span class="op">=</span> <span class="st">&quot;72a1d3bdb2883ace3f2de3a0f754c680908489e984503f1a66243ad74dc2887e&quot;</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true"></a>    version <span class="op">=</span> <span class="st">&quot;0.5.0.2&quot;</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true"></a>)</span></code></pre></div>
 <p>This function compiles down to an <code>http_archive</code> call targeting a particular grammar version, and that does the required string interpolation to instruct the package in question how to expose both the Haskell and JSON targets.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1"></a>_tree_sitter_language_build <span class="op">=</span> <span class="st">&quot;&quot;&quot;</span></span>
-<span id="cb2-2"><a href="#cb2-2"></a><span class="st">package(default_visibility = [&quot;//visibility:public&quot;])</span></span>
-<span id="cb2-3"><a href="#cb2-3"></a></span>
-<span id="cb2-4"><a href="#cb2-4"></a><span class="st">load(&quot;@rules_haskell//haskell:cabal.bzl&quot;, &quot;haskell_cabal_library&quot;)</span></span>
-<span id="cb2-5"><a href="#cb2-5"></a><span class="st">load(&quot;@stackage//:packages.bzl&quot;, &quot;packages&quot;)</span></span>
-<span id="cb2-6"><a href="#cb2-6"></a><span class="st">exports_files(glob([&quot;**/node-types.json&quot;]))</span></span>
-<span id="cb2-7"><a href="#cb2-7"></a></span>
-<span id="cb2-8"><a href="#cb2-8"></a><span class="st">alias(</span></span>
-<span id="cb2-9"><a href="#cb2-9"></a><span class="st">   name = &quot;src/node-types.json&quot;,</span></span>
-<span id="cb2-10"><a href="#cb2-10"></a><span class="st">   actual = &quot;</span><span class="sc">{node_types_path}</span><span class="st">&quot;,</span></span>
-<span id="cb2-11"><a href="#cb2-11"></a><span class="st">)</span></span>
-<span id="cb2-12"><a href="#cb2-12"></a></span>
-<span id="cb2-13"><a href="#cb2-13"></a><span class="st">haskell_cabal_library(</span></span>
-<span id="cb2-14"><a href="#cb2-14"></a><span class="st">    name = &quot;</span><span class="sc">{name}</span><span class="st">&quot;,</span></span>
-<span id="cb2-15"><a href="#cb2-15"></a><span class="st">    version = &quot;</span><span class="sc">{version}</span><span class="st">&quot;,</span></span>
-<span id="cb2-16"><a href="#cb2-16"></a><span class="st">    srcs = glob([&quot;**&quot;]),</span></span>
-<span id="cb2-17"><a href="#cb2-17"></a><span class="st">    deps = packages[&quot;</span><span class="sc">{name}</span><span class="st">&quot;].deps,</span></span>
-<span id="cb2-18"><a href="#cb2-18"></a><span class="st">    visibility = [&quot;//visibility:public&quot;],</span></span>
-<span id="cb2-19"><a href="#cb2-19"></a><span class="st">)</span></span>
-<span id="cb2-20"><a href="#cb2-20"></a></span>
-<span id="cb2-21"><a href="#cb2-21"></a><span class="st">filegroup(name = &quot;corpus&quot;, srcs = glob([&quot;**/corpus/*.txt&quot;]))</span></span>
-<span id="cb2-22"><a href="#cb2-22"></a><span class="st">&quot;&quot;&quot;</span></span>
-<span id="cb2-23"><a href="#cb2-23"></a></span>
-<span id="cb2-24"><a href="#cb2-24"></a><span class="kw">def</span> tree_sitter_node_types_hackage(name, version, sha256, node_types_path <span class="op">=</span> <span class="st">&quot;&quot;</span>):</span>
-<span id="cb2-25"><a href="#cb2-25"></a>    <span class="co">&quot;&quot;&quot;Download a tree-sitter language package from Hackage and build/expose its library and corpus.&quot;&quot;&quot;</span></span>
-<span id="cb2-26"><a href="#cb2-26"></a></span>
-<span id="cb2-27"><a href="#cb2-27"></a>    <span class="cf">if</span> node_types_path <span class="op">==</span> <span class="st">&quot;&quot;</span>:</span>
-<span id="cb2-28"><a href="#cb2-28"></a>        node_types_path <span class="op">=</span> <span class="st">&quot;:vendor/</span><span class="sc">{}</span><span class="st">/src/node-types.json&quot;</span>.<span class="bu">format</span>(name)</span>
-<span id="cb2-29"><a href="#cb2-29"></a></span>
-<span id="cb2-30"><a href="#cb2-30"></a>    info <span class="op">=</span> {</span>
-<span id="cb2-31"><a href="#cb2-31"></a>        <span class="st">&quot;name&quot;</span>: name,</span>
-<span id="cb2-32"><a href="#cb2-32"></a>        <span class="st">&quot;version&quot;</span>: version,</span>
-<span id="cb2-33"><a href="#cb2-33"></a>        <span class="st">&quot;node_types_path&quot;</span>: node_types_path,</span>
-<span id="cb2-34"><a href="#cb2-34"></a>    }</span>
-<span id="cb2-35"><a href="#cb2-35"></a>    http_archive(</span>
-<span id="cb2-36"><a href="#cb2-36"></a>        name <span class="op">=</span> name,</span>
-<span id="cb2-37"><a href="#cb2-37"></a>        build_file_content <span class="op">=</span> _tree_sitter_language_build.<span class="bu">format</span>(<span class="op">**</span>info),</span>
-<span id="cb2-38"><a href="#cb2-38"></a>        urls <span class="op">=</span> [<span class="st">&quot;https://hackage.haskell.org/package/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">.tar.gz&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info)],</span>
-<span id="cb2-39"><a href="#cb2-39"></a>        strip_prefix <span class="op">=</span> <span class="st">&quot;</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info),</span>
-<span id="cb2-40"><a href="#cb2-40"></a>        sha256 <span class="op">=</span> sha256,</span>
-<span id="cb2-41"><a href="#cb2-41"></a>    )</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a>_tree_sitter_language_build <span class="op">=</span> <span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="st">package(default_visibility = [&quot;//visibility:public&quot;])</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="st">load(&quot;@rules_haskell//haskell:cabal.bzl&quot;, &quot;haskell_cabal_library&quot;)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="st">load(&quot;@stackage//:packages.bzl&quot;, &quot;packages&quot;)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="st">exports_files(glob([&quot;**/node-types.json&quot;]))</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true"></a><span class="st">alias(</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true"></a><span class="st">   name = &quot;src/node-types.json&quot;,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true"></a><span class="st">   actual = &quot;</span><span class="sc">{node_types_path}</span><span class="st">&quot;,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true"></a><span class="st">)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true"></a><span class="st">haskell_cabal_library(</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true"></a><span class="st">    name = &quot;</span><span class="sc">{name}</span><span class="st">&quot;,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true"></a><span class="st">    version = &quot;</span><span class="sc">{version}</span><span class="st">&quot;,</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true"></a><span class="st">    srcs = glob([&quot;**&quot;]),</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true"></a><span class="st">    deps = packages[&quot;</span><span class="sc">{name}</span><span class="st">&quot;].deps,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true"></a><span class="st">    visibility = [&quot;//visibility:public&quot;],</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true"></a><span class="st">)</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true"></a><span class="st">filegroup(name = &quot;corpus&quot;, srcs = glob([&quot;**/corpus/*.txt&quot;]))</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true"></a><span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true"></a><span class="kw">def</span> tree_sitter_node_types_hackage(name, version, sha256, node_types_path <span class="op">=</span> <span class="st">&quot;&quot;</span>):</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;Download a tree-sitter language package from Hackage and build/expose its library and corpus.&quot;&quot;&quot;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true"></a>    <span class="cf">if</span> node_types_path <span class="op">==</span> <span class="st">&quot;&quot;</span>:</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true"></a>        node_types_path <span class="op">=</span> <span class="st">&quot;:vendor/</span><span class="sc">{}</span><span class="st">/src/node-types.json&quot;</span>.<span class="bu">format</span>(name)</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true"></a>    info <span class="op">=</span> {</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true"></a>        <span class="st">&quot;name&quot;</span>: name,</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true"></a>        <span class="st">&quot;version&quot;</span>: version,</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true"></a>        <span class="st">&quot;node_types_path&quot;</span>: node_types_path,</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true"></a>    }</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true"></a>    http_archive(</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true"></a>        name <span class="op">=</span> name,</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true"></a>        build_file_content <span class="op">=</span> _tree_sitter_language_build.<span class="bu">format</span>(<span class="op">**</span>info),</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true"></a>        urls <span class="op">=</span> [<span class="st">&quot;https://hackage.haskell.org/package/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">/</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">.tar.gz&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info)],</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true"></a>        strip_prefix <span class="op">=</span> <span class="st">&quot;</span><span class="sc">{name}</span><span class="st">-</span><span class="sc">{version}</span><span class="st">&quot;</span>.<span class="bu">format</span>(<span class="op">**</span>info),</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true"></a>        sha256 <span class="op">=</span> sha256,</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true"></a>    )</span></code></pre></div>
 <h1 id="my-conclusions">My Conclusions</h1>
 <p>The process of enabling Bazel on <code>semantic</code> took about two person-weeks of work. At least half, if not more, of that time was spent refining and tweaking the setup: the core attributes (the <code>WORKSPACE</code> and all relevant <code>BUILD</code>) files came together within a day’s work. I’m tremendously pleased with how well Bazel and <code>rules_haskell</code> worked out for <code>semantic</code>. Here is an inexhaustive list of the things that have brought me joy:</p>
 <ul>
