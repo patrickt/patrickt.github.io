@@ -27,9 +27,10 @@ executable organic
   other-modules:       Filters
   -- other-extensions:
   build-depends:       base
-                     , hakyll
+                     , hakyll ^>= 4.13.4
                      , text
                      , pandoc
+                     , pandoc-sidenote
                      , pandoc-types
   -- hs-source-dirs:
   default-language:    Haskell2010
