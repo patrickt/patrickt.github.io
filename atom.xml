@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>adventures in uncertainty</title>
+    <link href="https://blog.sumtypeofway.com/atom.xml" rel="self" />
+    <link href="https://blog.sumtypeofway.com" />
+    <id>https://blog.sumtypeofway.com/atom.xml</id>
+    <author>
+        <name>Patrick Thomson</name>
+        <email>patrick.william.thomson@gmail.com</email>
+    </author>
+    <updated>2020-09-14T00:00:00Z</updated>
+    <entry>
+    <title>My Emacs Configuration (Or, Emacs is Agar for Brain Worms)</title>
+    <link href="https://blog.sumtypeofway.com/posts/emacs-config.html" />
+    <id>https://blog.sumtypeofway.com/posts/emacs-config.html</id>
+    <published>2020-09-14T00:00:00Z</published>
+    <updated>2020-09-14T00:00:00Z</updated>
+    <summary type="html"><![CDATA[A descent into madness, chronicled through an Emacs setup.]]></summary>
+</entry>
+<entry>
+    <title>Bazel, Haskell, and Build-System Joy</title>
+    <link href="https://blog.sumtypeofway.com/posts/bazel-haskell-build-system-joy.html" />
+    <id>https://blog.sumtypeofway.com/posts/bazel-haskell-build-system-joy.html</id>
+    <published>2020-09-10T00:00:00Z</published>
+    <updated>2020-09-10T00:00:00Z</updated>
+    <summary type="html"><![CDATA[I ported a large Haskell project to Bazel and lived to tell about it.]]></summary>
+</entry>
+<entry>
+    <title>Towards Faster Iteration in Industrial Haskell</title>
+    <link href="https://blog.sumtypeofway.com/posts/fast-iteration-with-haskell.html" />
+    <id>https://blog.sumtypeofway.com/posts/fast-iteration-with-haskell.html</id>
+    <published>2020-04-14T00:00:00Z</published>
+    <updated>2020-04-14T00:00:00Z</updated>
+    <summary type="html"><![CDATA[A list of things you can do to speed up the development cycle of Haskell projects.]]></summary>
+</entry>
+<entry>
+    <title>Serving HTTP Content with Fused-Effects</title>
+    <link href="https://blog.sumtypeofway.com/posts/serving-http-content-with-fused-effects.html" />
+    <id>https://blog.sumtypeofway.com/posts/serving-http-content-with-fused-effects.html</id>
+    <published>2019-11-22T00:00:00Z</published>
+    <updated>2019-11-22T00:00:00Z</updated>
+    <summary type="html"><![CDATA[Building a dead-simple web framework with WAI and fused-effects.]]></summary>
+</entry>
+<entry>
+    <title>Recursion Schemes, Part VI: Comonads, Composition, and Generality</title>
+    <link href="https://blog.sumtypeofway.com/posts/recursion-schemes-part-6.html" />
+    <id>https://blog.sumtypeofway.com/posts/recursion-schemes-part-6.html</id>
+    <published>2019-02-28T00:00:00Z</published>
+    <updated>2019-02-28T00:00:00Z</updated>
+    <summary type="html"><![CDATA[The final episode of my exploration of common (ish) recursion schemes]]></summary>
+</entry>
+
+</feed>
