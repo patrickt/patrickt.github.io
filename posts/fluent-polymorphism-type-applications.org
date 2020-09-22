@@ -1,6 +1,7 @@
 ---
 title: Fluent Polymorphism with Visible Type Applications
 date: 2018-12-26
+description: The TypeApplications extension to Haskell is subtle and powerful. Let’s explore its use and ramnifications.
 ---
 
 #+TITLE: Fluent Polymorphism with Visible Type Applications

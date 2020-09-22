@@ -1,6 +1,7 @@
 ---
 title: Bazel, Haskell, and Build-System Joy
 date: 2020-09-10
+description: I ported a large Haskell project to Bazel and lived to tell about it.
 ---
 
 #+TITLE: Bazel, Haskell, and Build-System Joy

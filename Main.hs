@@ -38,6 +38,15 @@ main = hakyll do
         >>= loadAndApplyTemplate "templates/default.html" defaultContext
         >>= relativizeUrls
 
+  create ["atom.xml"] do
+    route idRoute
+    compile do
+      posts <- take 5 <$> (recentFirst =<< loadAll "posts/*")
+      let feedCtx =
+            listField "posts" defaultContext (pure posts)
+              <> defaultContext
+      renderAtom feedConfig feedCtx posts
+
   create ["archive"] do
     route $ setExtension "html"
     compile do
@@ -74,8 +83,8 @@ main = hakyll do
   match "index.html" do
     route idRoute
     compile do
-      posts <- take 5 <$> (recentFirst =<< loadAll "posts/*")
-      let ctx = listField "posts" defaultContext (pure posts) <> constField "title" "Home" <> defaultContext
+      let posts = take 5 <$> (recentFirst =<< loadAll "posts/*")
+      let ctx = listField "posts" defaultContext posts <> constField "title" "Home" <> defaultContext
       getResourceBody
         >>= applyAsTemplate ctx
         >>= loadAndApplyTemplate "templates/default.html" ctx
@@ -97,3 +106,13 @@ main = hakyll do
 
 customPandoc :: Compiler (Item String)
 customPandoc = pandocCompilerWithTransform defaultHakyllReaderOptions defaultHakyllWriterOptions (usingSideNotes . usingOldstyleSyntax)
+
+feedConfig :: FeedConfiguration
+feedConfig =
+  FeedConfiguration
+    { feedTitle = "adventures in uncertainty",
+      feedDescription = "observations on functional programming",
+      feedAuthorName = "Patrick Thomson",
+      feedAuthorEmail = "patrick.william.thomson@gmail.com",
+      feedRoot = "https://blog.sumtypeofway.com"
+    }
