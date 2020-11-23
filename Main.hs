@@ -43,8 +43,7 @@ main = hakyll do
     compile do
       posts <- take 5 <$> (recentFirst =<< loadAll "posts/*")
       let feedCtx =
-            listField "posts" defaultContext (pure posts)
-              <> defaultContext
+            listField "posts" mempty (pure posts) <> defaultContext
       renderAtom feedConfig feedCtx posts
 
   create ["archive"] do
@@ -52,10 +51,13 @@ main = hakyll do
     compile do
       posts <- recentFirst =<< loadAll "posts/*"
       let archiveCtx =
-            listField "posts" defaultContext (pure posts)
-              <> constField "title" "Archives"
-              <> defaultContext
-      makeItem ""
+            mconcat
+              [ listField "posts" defaultContext (pure posts),
+                constField "title" "Archives",
+                defaultContext
+              ]
+
+      makeItem []
         >>= loadAndApplyTemplate "templates/archive.html" archiveCtx
         >>= loadAndApplyTemplate "templates/default.html" archiveCtx
         >>= relativizeUrls
@@ -84,13 +86,18 @@ main = hakyll do
     route idRoute
     compile do
       let posts = take 5 <$> (recentFirst =<< loadAll "posts/*")
-      let ctx = listField "posts" defaultContext posts <> constField "title" "Home" <> defaultContext
+      let ctx =
+            mconcat
+              [ listField "posts" defaultContext posts,
+                constField "title" "Home",
+                defaultContext
+              ]
       getResourceBody
         >>= applyAsTemplate ctx
         >>= loadAndApplyTemplate "templates/default.html" ctx
         >>= relativizeUrls
 
-  match "templates/*" $ compile templateCompiler
+  match "templates/*" $ compile templateBodyCompiler
 
   version "redirects" $
     createRedirects
