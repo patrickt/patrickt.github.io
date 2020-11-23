@@ -88,7 +88,7 @@ main = hakyll do
       let posts = take 5 <$> (recentFirst =<< loadAll "posts/*")
       let ctx =
             mconcat
-              [ listField "posts" (mempty :: Context String) posts,
+              [ listField "posts" defaultContext posts,
                 constField "title" "Home",
                 defaultContext
               ]
