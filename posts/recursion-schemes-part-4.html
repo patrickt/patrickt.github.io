@@ -202,7 +202,6 @@
 <p>We derived the anamorphism and apomorphism by reversing the arrows in the definitions of <code>cata</code> and <code>para</code>. The same technique applies here—<code>&gt;&gt;&gt;</code> becomes <code>&lt;&lt;&lt;</code>, and <code>In</code> becomes <code>out</code>. And as previously, we use a type hole to derive the needed signature of the helper function.</p>
 <div class="sourceCode" id="cb35" data-results="output" data-exports="both"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true"></a><span class="ot">futu ::</span> <span class="dt">Functor</span> f <span class="ot">=&gt;</span> <span class="dt">CVCoalgebra</span> f a <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Term</span> f</span>
 <span id="cb35-2"><a href="#cb35-2" aria-hidden="true"></a>futu f <span class="ot">=</span> <span class="dt">In</span> <span class="op">&lt;&lt;&lt;</span> <span class="fu">fmap</span> _worker <span class="op">&lt;&lt;&lt;</span> f</span></code></pre></div>
-<p>#+RESULTS</p>
 <pre class="example"><code>/Users/patrick/src/morphisms/src/Main.hs:28:32: error:
    • Found hole: ‘_worker’ with type :: CoAttr f a -&gt; Term f
 </code></pre>
