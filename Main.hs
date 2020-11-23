@@ -74,13 +74,13 @@ main = hakyll do
         >>= loadAndApplyTemplate "templates/default.html" (constField "title" "About Me" <> defaultContext)
         >>= relativizeUrls
 
-  -- match "contact.org" do
-  --   route $ setExtension "html"
-  --   compile $
-  --     customPandoc
-  --       >>= saveSnapshot "content"
-  --       >>= loadAndApplyTemplate "templates/default.html" (constField "title" "Get in Touch")
-  --       >>= relativizeUrls
+  match "contact.org" do
+    route $ setExtension "html"
+    compile $
+      customPandoc
+        >>= saveSnapshot "content"
+        >>= loadAndApplyTemplate "templates/default.html" (constField "title" "Get in Touch" <> defaultContext)
+        >>= relativizeUrls
 
   match "index.html" do
     route idRoute
