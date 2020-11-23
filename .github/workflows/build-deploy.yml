@@ -6,7 +6,7 @@ jobs:
     name: Build and deploy
     runs-on: ubuntu-latest
     env:
-      GHC_VERSION: '8.8.3'
+      GHC_VERSION: '8.10.2'
       CABAL_VERSION: '3.4'
 
     steps:
