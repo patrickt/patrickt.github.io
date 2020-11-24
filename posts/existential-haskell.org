@@ -290,7 +290,7 @@ With the ~TypeApplications~ and ~ConstraintKinds~ extensions, we can specify tha
 let wrappedInt = Some @Show (5 :: Int)
 #+END_SRC
 
-This seems like a broadly applicable data type, but I haven’t seen anyone use anything like it yet (though the inimitable Rob Rix tells me that he’s defined it many times, at which I bear zero surprise, because Rob is a maestro).
+This seems like a broadly applicable data type, but it’s not present in the standard library or any widely-used libraries (though the inimitable Rob Rix tells me that he’s defined it many times, at which I bear zero surprise, because Rob is a maestro).
 
 We can extend this to types composed out of other types, like ~Int~ or ~Vector String~: this ~Some1~ constructor is polymorphic in two type variables, both of which take arguments and return ~Constraint~ kinds.
 
@@ -317,3 +317,5 @@ someFunctorOfInts = Some1 [1, 2, 3]
 ** Conclusion
 
 Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, it’s nonetheless a profoundly useful technique both in the abstract and when dealing with the nitty-gritty of data manipulation.
+
+/Thanks to Ayman Nadeem and Rob Rix for reviewing drafts of this post./
