@@ -316,4 +316,4 @@ someFunctorOfInts = Some1 [1, 2, 3]
 
 ** Conclusion
 
-Draw your own conclusions. We’re done here. Thanks very much for reading.
+Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, it’s nonetheless a profoundly useful technique both in the abstract and when dealing with the nitty-gritty of data manipulation.
