@@ -1,0 +1,319 @@
+Most of the world’s statically-typed programming languages allow their users to write code resembling the following Java:
+
+#+BEGIN_SRC java
+  public static Comparable someFn() {
+      return "a concrete String value";
+  }
+#+END_SRC
+
+Syntactically, this code is uncontroversial: it’s a function that returns a value. Its only interesting aspect lies in the function signature−even though the function body returns a value of type ~String~, its return type is declared to be [[https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html][~Comparable~]], which is not a concrete data type, but a Java [[https://en.wikipedia.org/wiki/Interface_(computing)][interface]]. We can try to write the same thing in Haskell:
+
+#+BEGIN_SRC haskell
+  someComparableValue :: Ord a => a
+  someComparableValue _ = "a concrete string value"
+#+END_SRC
+
+Because this is not semantically-valid Haskell, we get the following error:
+
+#+begin_src
+<interactive>:3:27: error:
+    • Couldn't match expected type ‘a’ with actual type ‘[Char]’
+      ‘a’ is a rigid type variable bound by
+        the type signature for:
+          someComparableValue :: forall a. Ord a => Int -> a
+#+end_src
+
+Haskell’s typechecker looks at the body of this function and says “hey, man, you’re returning a concrete string value here, not ’any type that is ~Ord~--erable.’” Though this is a valid notion in Java, it’s not valid in Haskell. Another perspective on this is that Java allows a value to have more than one type: we can treat a Java string literal as a value of type ~java.lang.String~, or of type[fn:2] ~Comparable~, or of its superclass ~java.lang.Object~. This application of the [[https://en.wikipedia.org/wiki/Rule_of_least_power][rule of least power]] is a useful one: sometimes we want to hide the implementation details of a function’s return types. Haskell, being a powerful language, supports this use case with what are called /existential/ types.
+
+What follows is an overview of existential types in practice, and the quirks associated therewith. I write this not because I expect to break any new ground—all the techniques I use here are long-documented in the literature, and Haskell veterans will probably find little new in this post[fn:0]—but because the existing resources are scattered, perhaps oddly so given how central dynamic dispatch is to most programming languages that aren't Haskell, and because exploring the edge cases in the design illustrates the compromises inherent in language and library design.
+
+[fn:0] Those familiar with the care and feeding of existential types may wish to skip to the final section, which contains a couple useful data types that I haven’t yet seen in the wild.
+[fn:2] even though ~Comparable~ is an interface, not a concrete type
+
+
+** Quick, Some Definitions
+
+In Haskell, an /existential/ data type is one that is defined in terms not of a concrete type, but in terms of a quantified type variable, introduced on the right-hand side of the data declaration. This is, as is the case for so many Haskell concepts, not a particularly elucidating definition in the abstract. It’s easier to show than to tell, so let's take a look at one of the canonical examples of an existential type: a ~Showable~ type that wraps any type that implements the ~Show~ interface.
+
+#+BEGIN_SRC haskell
+data Showable = forall a . Show a => Showable a
+#+END_SRC
+
+There are several interesting things about this data type. Firstly, it uses the ~forall~ keyword to introduce the ~a~ type variable: given that we’re dealing with /exist/-ential types, it threw me for a loop that there wasn’t an ~exists~ keyword.[fn:3] Considering the constructor of ~Showable~ is perhaps more elucidating:
+
+[fn:3] Scala reserves a ~forSome~ keyword for this purpose, which I think reads a little more accurately in terms of the intent of introducing this type variable: using the phrase “for all” is a bit inapposite given that the ~Showable~ constructor is applied to single values at a time.
+
+#+BEGIN_SRC
+λ> :t Showable
+Showable :: forall a . Show a => a -> Showable
+#+END_SRC
+
+We can read this as "~Showable~ is a constructor that takes, for all types ~a~ such that ~a~ implements ~Show~, an ~a~ value, and returns a value of type ~Showable~, the internal ~a~ value of which is no longer visible to the world once it’s been applied.“
+
+Secondly, we can’t use a ~newtype~ to declare an existential. Attempting to write the following:
+
+#+BEGIN_SRC haskell
+  newtype Showable = forall a . Show a => Showable a
+#+END_SRC
+
+results in an error message:
+
+#+begin_src
+    • A newtype constructor cannot have a context in its type
+      Showable :: forall a. Show a => a -> Showable
+    • In the definition of data constructor ‘Showable’
+      In the newtype declaration for ‘Showable’
+#+end_src
+
+When we consider typeclasses as [[https://blog.sumtypeofway.com/posts/fluent-polymorphism-type-applications.html][dictionaries]], this restriction makes more sense: in GHC Core, this ~Show a~ constraint will be represented as a hypothetical ~ShowDict~ data type containing implementations for the ~show~, ~showsPrec~, and ~showList~ functions. In this light, we can see that ~Showable~ takes /two/ parameters, not one: an ~a~ value to wrap, as well as the ~ShowDict~ dictionary associated with that value’s type. Newtypes exist to wrap single values, and here we’re wrapping both a datum and its associated ~Show~ dictionary: as a result, here we need a ~data~ declaration, even though the associated ~Showable~ constructor takes only one value (in Haskell surface syntax). This is an understandable limitation, though it would be cool if existential values of this sort could opt into the ~deriving~ mechanism in the manner of newtypes.
+
+A third interesting thing: we can’t write a function that unwraps this data type. What might seem like an intuitive type for the function is rejected:
+
+#+BEGIN_SRC haskell
+  – GHC will reject this!
+  unwrapShowable :: Showable -> (forall a . Show a => a)
+  unwrapShowable (Showable a) = a
+#+END_SRC
+
+We can see this explained a little more closely if we use the record selector syntax.
+
+#+BEGIN_SRC haskell
+data Showable = forall a . Show a => Showable { unShowable :: a }
+#+END_SRC
+
+Attempting to use ~unShowable~ as a function that extracts some arbitrary ~Show~--inhabiting type produces a well-explained error messages:
+
+#+begin_src
+<interactive>:1:1: error:
+    • Cannot use record selector ‘unShowable’ as a function due to escaped type variables
+      Probable fix: use pattern-matching syntax instead
+    • In the expression: unShowable
+#+end_src
+
+The mental model I use here is that applying a constructor of an existential type serves as a sort of [[https://en.wikipedia.org/wiki/Event_horizon][event horizon]] for type information. In other languages we can assemble heterogenous lists natively; in Haskell, by contrast, we have to opt into it explicitly: applying the ~Showable~ constructor to a value swallows its type information. All that is retained is the ability to ~Show~ the value contained therein: it cannot /escape/ its scope, as the error message above explains[fn:recordupdate].
+
+We can, of course, cross the event horizon with a ~case~ statement, binding the ~Show~--conforming contents to a variable name:
+
+#+BEGIN_SRC haskell
+let shown = case x of Showable val -> show val
+#+END_SRC
+
+Inside the right-hand-side of this ~case~ statement, we have a value ~x~ in scope. A quick inquiry with type holes reveals the type we expect:
+
+#+begin_src
+    • Relevant bindings include
+        x :: a (bound at <interactive>:28:15)
+      Constraints include Show a (from <interactive>:28:11-15)
+#+end_src
+
+All we know about this value ~x~ is that we can call ~Show~ on it. Other than passing it to the basic combinators (~id~ and ~const~), that’s /all we can do/ with this value. Any bit of type information has been lost, replaced instead with /capabilities/, via typeclasses. Again, when we consider typeclasses as [[https://blog.sumtypeofway.com/posts/fluent-polymorphism-type-applications.html][dictionaries]], we can visualize how this works on a core-calculus level: we discard type information, including only the relevant dictionaries provided by the context of the ~forall~.
+
+A fourth and final interesting thing about this type is that you can write it, using the ~GADTs~ GHC extension, without an explicit ~forall~ keyword:
+
+#+BEGIN_SRC haskell
+data Showable where
+  Showable :: Show a => a -> Showable
+#+END_SRC
+
+This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally.
+
+[fn:recordupdate] We can, however, use the ~unShowable~ record selector to update the wrapped value present in a ~Showable~.
+
+** Casts
+
+Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
+
+#+BEGIN_SRC java
+  Comparable c = someFn(0);
+  if c instanceof String {
+      System.out.println("Got a string: " + (String)c);
+  } else {
+      System.out.println("Casting to a String here would raise a ClassCastException");
+  }
+#+END_SRC
+
+Though this style of programming isn’t hugely popular in Haskell, it’s not unheard of, and Haskell indeed supports it: this is where the [[https://google.com/search?hl=en&q=data.typeable][~Typeable~]] typeclass comes in. It’s most prominently at work in ~base~, under ~Control.Exception:~
+
+#+BEGIN_SRC haskell
+class (Typeable a, Show e) => Exception e
+
+data SomeException = forall e . Exception e => SomeException e
+#+END_SRC
+
+This code begins with the declaration of a new typeclass, ~Exception~, that inherits from both ~Typeable~ and ~Show~. The fact that the ~Exception~ typeclass inherits from ~Typeable~ means that we can use ~cast~, the fundamental ~Typeable~ primitive, to do safe casting to concrete values, accounting for the possibility of failure.
+
+Let’s take an example, in the lowly (or perhaps mighty, depending on how you look at it) ~IO~ monad, of using Haskell’s dynamically-typed exception hierarchy:
+
+#+BEGIN_SRC haskell
+  cautiouslyPrint :: Show a => IO a -> IO ()
+  cautiouslyPrint go = Control.Exception.catch (go >>= print) handler
+    where
+      handler :: SomeException -> IO ()
+      handler (SomeException e) = case cast e of
+        Just DivideByZero -> putStrLn "divide by zero"
+        Nothing -> putStrLn ("Some other exception: " <> show e)
+#+END_SRC
+
+Here we use the ~catch~ function to evaluate the provided ~go~ argument, invoking ~handler~ should a runtime exception be thrown. We’re only handling one possible error type: ~DivideByZero~, one of the constructors of ~ArithException~. However, we are doing so via a checked cast, courtesy of the ~cast~ function, because we’re not recognizing ~ArithException~ values directly: ~handler~ will be invoked on /any/ exception, because ~SomeException~, to ~catch~, means “this catch statement should handle any and all exceptions thrown by its body.” Looking at the type of ~cast~ can be illuminating:
+
+#+BEGIN_SRC haskell
+cast :: (Typeable a, Typeable b) => a -> Maybe b
+#+END_SRC
+
+~cast~, perhaps unsurprisingly, is defined to return ~Just~ a value when the types ~a~ and ~b~ line up. This is done dynamically, at runtime, thanks to the Typeable class, which is a special typeclass indeed: it’s one of only two typeclasses that GHC /explicitly prohibits/ any user-specified instances. Try it; you’ll get your hand slapped:
+
+#+begin_src
+<interactive>:4:10: error:
+    • Class ‘Typeable’ does not support user-specified instances
+    • In the instance declaration for ‘Typeable Foo’
+#+end_src
+
+GHC is right to prohibit this: because ~Typeable~ is concerned with the internal representation of Haskell types in memory, it’s GHC’s responsibility to implement it for you. And indeed it does: all types implement ~Typeable~, for free. Note that ~cast~ takes all type information into account, not just structure: in practice, this means that you can’t cast a ~Nothing~ value of type ~Maybe Int~ to a ~Nothing~ value of type ~Maybe Char~, even though the standalone ~Nothing~ identifier can be implicitly cast to a value of ~Maybe Char~ or ~Maybe Int~ or ~Maybe String~ or what have you.
+
+Let’s drop back to our prior example:
+
+#+BEGIN_SRC haskell
+handler :: SomeException -> IO ()
+handler (SomeException e) = case cast e of
+  Just DivideByZero -> putStrLn "divide by zero"
+  Nothing -> putStrLn ("Some other exception: " <> show e)
+#+END_SRC
+
+As I mentioned, we’re only handling one possible error case: though ~handler~ will be invoked for all exception types, our ~cast~ operation only handles ~DivideByZero~ exceptions (of type ~ArithException~). We can add new ~ArithException~ cases without difficulty:
+
+#+BEGIN_SRC haskell
+  Just DivideByZero -> putStrLn "divide by zero"
+  Just Underflow -> putStrLn "floating point shenanigans"
+  Nothing -> putStrLn ("Some other exception: " <> show e)
+#+END_SRC
+
+However, the problem becomes thornier when we want to handle disjoint ~Exception~-conformant types. A naïve encoding of the problem will not work, as in the following[fn:1], where we try to handle ~ArithExceptions~ and ~ArrayExceptions~:
+
+[fn:1] Note that this syntax ~Just (e :: ArithException)~, in which we annotate a value with an indicated type without pattern matching on it, requires the ~ScopedTypeVariables~ extension to be enabled. ~ScopedTypeVariables~ should /always/ be enabled: it does the right and obvious thing.
+
+#+begin_src haskell
+  Just (arith :: ArithException) -> putStrLn ("arithmetic: " <> show arith)
+  Just (array :: ArrayException) -> putStrLn ("array: " <> show array)
+#+end_src
+
+This will produce a compiler error, because all the values on the left-hand-sides of a ~case~ statement’s branches must have the same type! A corrected version might read:
+
+#+BEGIN_SRC haskell
+handler (SomeException e) = case cast e of
+  Just (arith :: ArithException) -> putStrLn ("arith: " <> show arith)
+  Nothing -> case cast e of
+    Just (array :: ArrayException) -> putStrLn ("array: " <> show array)
+    Nothing -> putStrLn ("Some other exception: " <> show e)
+#+END_SRC
+
+To work around the fact that the first ~cast~ expression limits its result type to values of type ~ArithException~, we have to call ~cast~ again: this time, the ~Typeable~ value is pinned to ~ArrayException~, which lets us handle successful casts in the ~Just~ clause and failure in the ~Nothing~ clause.
+
+There is a grave issue with the above pattern: it’s clunky as hell with only two cases, and gets even clunkier as you add more possible types. A more modern approach is to use GHC’s ~MultiwayIf~, in a manner that can be surprising for newcomers. ~if~ statements are usually concerned with boolean values, but this one won’t be: instead, we’re going to call ~cast~, using the [[https://en.wikibooks.org/wiki/Haskell/Control_structures#if_and_guards_revisited][guard syntax]] to discriminate between cases. By guarding (with ~|~) on ~Just~ values returned from ~cast~, we can have something akin to a polytypic ~case~ statement:
+
+#+BEGIN_SRC haskell
+if
+  | Just (arith :: ArithException) <- cast e -> putStrLn ("arith: " <> show arith)
+  | Just (array :: ArrayException) <- cast e -> putStrLn ("array: " <> show array)
+  | otherwise -> putStrLn ("Something else: " <> show e)
+#+END_SRC
+
+This is arguably a bastardization of the spirit of ~MultiWayIf~, which is ostensibly about simplifying large systems of boolean equations. Here, the only ~Bool~ value involved is ~otherwise~, defined by the Prelude to be ~True~. Because ~True~ is always, well, ~True~, its position as the last branch will mean that it is always matched, unless matched by a previous case (that is, a successful ~Just~ value). Yet the ~otherwise~ is readable in context, the code’s intent is clear, and its one flaw—the repeated work associated with the multiple calls to ~cast~---can be remedied with a simple ~let~ binding:
+
+#+BEGIN_SRC haskell
+let val = cast e in if
+      | Just (arith :: ArithException) <- val -> putStrLn ("arith: " <> show arith)
+      | Just (array :: ArrayException) <- val -> putStrLn ("array: " <> show array)
+      | otherwise -> putStrLn ("Something else: " <> show e)
+#+END_SRC
+
+Though this kind of runtime polymorphism isn’t enormously common in Haskell–we usually resolve polymorphism at compile-time—it’s not unheard of, and, as mentioned above, is provided as part of the ~Control.Exception~ interface to GHC’s hierarchy of exceptions. This Haskell design pattern—an existential data type that inherits from ~Typeable~---is as close to dynamic dispatch as Haskell gets. Though it’s not common, neither is it invalid: sometimes what’s needed is an event horizon, that hides the concrete representation of a datum but provides, via polymorphism, the chance to reconstitute itself into a concrete type with ~Typeable~.
+
+** Let’s build a responder chain
+
+Essential to most GUI programming is the notion of what macOS and iOS call the [[https://developer.apple.com/documentation/uikit/touches_presses_and_gestures/using_responders_and_the_responder_chain_to_handle_events][responder chain]]. The responder chain is responsible for passing events—key presses, mouse clicks, device motions—through the hierarchy of a user interface. For example, shaking one’s device in iOS produces an undo event, if the user has a text field selected. The responder chain is responsible for passing shake events down the window hierarchy, eventually settling on the text field; were it not selected, the rest of the UI would have a chance to intercept and interpret this event.
+
+Implementing a responder chain is fairly straightforward in an object-oriented view of the world: there is some superclass that all user interface elements extend, and this interface provides a lingua franca for events to be dynamically dispatched. It becomes somewhat more intricate, at least on the face of it, in a strongly-typed world sans subtyping. Indeed, this was [[https://inessential.com/2016/05/14/the_tension_of_swift][one of the qualms]] expressed by the Objective-C community in response to the emergence of Swift. While Swift is [[http://roopc.net/posts/2016/swifty-responder-chain/][perfectly capable]] of expressing a fluent, idiomatic responder chain, the lesson is more broadly applicable. Indeed, we can envision a UI framework that implemented this behavior in Haskell:
+
+#+BEGIN_SRC haskell
+  data Response a where
+    Accept :: a -> Response a
+    Finish :: a -> Response ()
+    Defer :: Response a
+
+  class (Typeable a, Show a) => Responder a where
+    respond :: Event -> Response a
+
+  data SomeResponder = forall a . Responder a => SomeResponder a
+
+  newtype Chain = Chain [SomeResponder]
+
+  -- Dirt-simple imperative implementation with the ST monad.
+  -- An implementation with a fold could do this all purely
+  -- but the accumulator is a little fiddly
+  propagate :: Responder a => (a -> a) -> Chain -> Chain
+  propagate fn (Chain c) = runST do
+    -- We need a signaling variable in case something in the chain
+    -- wants to abort the traversal.
+    abort <- newSTRef False
+    -- Iterate through the responder chain...
+    result <- for c \(SomeResponder item) -> do
+      -- attempting to apply the function at each item
+      let given = fmap fn (cast item)
+      -- but first checking to see if we've aborted in prior iterations
+      done <- readSTRef abort
+      if
+        -- A prior Finish result means we no-op
+        | done -> pure item
+        -- Return a new value while writing to the signal variable.
+        | Just (Finish a) <- given -> a <$ writeSTRef abort True
+        -- Just return the new value.
+        | Just (Accept a) <- given -> pure a
+        -- No match? Continue onward
+        | _ -> pure item
+    pure (Chain result)
+#+END_SRC
+
+Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from ~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional language like Haskell.
+
+** One Polytypic Existential to Rule Them All
+
+You, the reader, might at this point be turning up your nose at the idea of having to write a ~forall~-based existential type for every concievable typeclass that you might need to wrap. This is indeed a valid observation. Luckily, GHC Haskell gives us sufficient tools to write a data type that is polymorphic not just in terms of a hidden value it wraps, but in terms of the typeclass it uses!
+
+#+BEGIN_SRC haskell
+data Some (c :: Type -> Constraint) where
+  Some :: c a => a -> Some c
+#+END_SRC
+
+With the ~TypeApplications~ and ~ConstraintKinds~ extensions, we can specify that the type variable passed to ~Some~ is not of kind ~Type~, or ~Type -> Type~; instead, it takes a ~Type~ and returns a ~Constraint~. This means that we can pass in ~Show~, ~Eq~, ~Ord~, or any other unary typeclass, using a type application:
+
+#+BEGIN_SRC haskell
+let wrappedInt = Some @Show (5 :: Int)
+#+END_SRC
+
+This seems like a broadly applicable data type, but I haven’t seen anyone use anything like it yet (though the inimitable Rob Rix tells me that he’s defined it many times, at which I bear zero surprise, because Rob is a maestro).
+
+We can extend this to types composed out of other types, like ~Int~ or ~Vector String~: this ~Some1~ constructor is polymorphic in two type variables, both of which take arguments and return ~Constraint~ kinds.
+
+#+BEGIN_SRC haskell
+data Some1 c d where
+  Some1 ::
+    forall k
+      (c :: (k -> Type) -> Constraint)
+      (d :: k -> Constraint)
+      (f :: k -> Type)
+      (a :: k) .
+    (c f, d a)
+    => f a
+    -> Some1 c d
+#+END_SRC
+
+The built-in ~~~ syntax, included with the ~GADTs~ extension, provides us a method to establish that type variables must be equal: the present of an ~a ~ Int~ constraint ensures that ~a~ /must/ unify with (read: be equal to) the ~Int~ type. By partially applying this constraint, we can speak of useful types with remarkable brevity, such as the following type representing “some ~Functor~ containing ~Int~ values”:
+
+#+BEGIN_SRC haskell
+someFunctorOfInts :: Some1 Functor ((~) Int)
+someFunctorOfInts = Some1 [1, 2, 3]
+#+END_SRC
+
+** Conclusion
+
+Draw your own conclusions. We’re done here. Thanks very much for reading.
