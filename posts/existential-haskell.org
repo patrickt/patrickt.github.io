@@ -31,7 +31,7 @@ What follows is an overview of existential types in practice, and the quirks ass
 [fn:2] even though ~Comparable~ is an interface, not a concrete type
 
 
-** Quick, Some Definitions
+* quick, some definitions
 
 In Haskell, an /existential/ data type is one that is defined in terms not of a concrete type, but in terms of a quantified type variable, introduced on the right-hand side of the data declaration. This is, as is the case for so many Haskell concepts, not a particularly elucidating definition in the abstract. It’s easier to show than to tell, so let's take a look at one of the canonical examples of an existential type: a ~Showable~ type that wraps any type that implements the ~Show~ interface.
 
@@ -46,7 +46,7 @@ There are several interesting things about this data type. Firstly, it uses the 
 Showable :: forall a . Show a => a -> Showable
 #+end_src
 
-We can read this as "~Showable~ is a constructor that takes, for all types ~a~ such that ~a~ implements ~Show~, an ~a~ value, and returns a value of type ~Showable~, the internal ~a~ value of which is no longer visible to the world once it’s been applied.“
+We can read this as "~Showable~ is a constructor that takes, for all types ~a~ such that ~a~ implements ~Show~, an ~a~ value, and returns a value of type ~Showable~, the internal ~a~ value of which is no longer visible to the world once it’s been applied."
 
 Secondly, we can’t use a ~newtype~ to declare an existential. Attempting to write the following:
 
@@ -88,7 +88,7 @@ Attempting to use ~unShowable~ as a function that extracts some arbitrary ~Show~
     • In the expression: unShowable
 #+end_src
 
-The mental model I use here is that applying a constructor of an existential type serves as a sort of [[https://en.wikipedia.org/wiki/Event_horizon][event horizon]] for type information. In other languages we can assemble heterogenous lists natively; in Haskell, by contrast, we have to opt into it explicitly: applying the ~Showable~ constructor to a value swallows its type information. We can’t write a function, whether hand-written or descending from a record selector, that unwraps some arbitrary type out of an existantial. All that is retained is the ability, given a proper ~case~ statement to unwrap the value within the existential, to ~Show~ the value contained therein: it cannot /escape/ its scope, as the error message above explains[fn:recordupdate].
+The mental model I use here is that applying a constructor of an existential type serves as a sort of [[https://en.wikipedia.org/wiki/Event_horizon][event horizon]] for type information. In other languages we can assemble heterogenous lists natively; in Haskell, by contrast, we have to opt into it explicitly: applying the ~Showable~ constructor to a value swallows its type information. We can’t write a function, whether hand-written or descending from a record selector, that unwraps some arbitrary type out of an existential. All that is retained is the ability, given a proper ~case~ statement to unwrap the value within the existential, to ~Show~ the value contained therein: it cannot /escape/ its scope, as the error message above explains[fn:recordupdate].
 
 We can, as I mentioned above, cross the event horizon with a ~case~ statement, binding the ~Show~--conforming contents to a variable name:
 
@@ -113,13 +113,13 @@ data Showable where
   Showable :: Show a => a -> Showable
 #+end_src
 
-This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally.
+This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally. Another thing to note is that existential values don’t have to be limited to a single value: they can hold concrete values, or values expressed with more ~forall~--introduced type variables.
 
 [fn:recordupdate] We can, however, use the ~unShowable~ record selector to update the wrapped value present in a ~Showable~.
 
 [fn:3] Scala reserves a ~forSome~ keyword for this purpose, which I think reads a little more accurately in terms of the intent of introducing this type variable: using the phrase “for all” is a bit inapposite given that the ~Showable~ constructor is applied to single values at a time.
 
-** Casts
+* cast around wildly
 
 Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
 
@@ -169,6 +169,8 @@ cast :: (Typeable a, Typeable b) => a -> Maybe b
 #+end_src
 
 GHC is right to prohibit this: because ~Typeable~ is concerned with the internal representation of Haskell types in memory, it’s GHC’s responsibility to implement it for you. And indeed it does: all types implement ~Typeable~, for free. Note that ~cast~ takes all type information into account, not just structure: in practice, this means that you can’t cast a ~Nothing~ value of type ~Maybe Int~ to a ~Nothing~ value of type ~Maybe Char~, even though the standalone ~Nothing~ identifier can be implicitly cast to a value of ~Maybe Char~, or ~Maybe Int~, or ~Maybe String~.
+
+* fluent dynamic dispatch
 
 Let’s drop back to our prior example:
 
@@ -228,7 +230,7 @@ Though this kind of runtime polymorphism isn’t enormously common in Haskell–
 
 [fn:1] Note that this syntax ~Just (e :: ArithException)~, in which we annotate a value with an indicated type without pattern matching on it, requires the ~ScopedTypeVariables~ extension to be enabled. ~ScopedTypeVariables~ should /always/ be enabled: it does the right and obvious thing.
 
-** Let’s Build a Responder Chain
+* let’s build a responder chain
 
 Essential to most GUI programming is the notion of what macOS and iOS call the [[https://developer.apple.com/documentation/uikit/touches_presses_and_gestures/using_responders_and_the_responder_chain_to_handle_events][responder chain]]. The responder chain is responsible for passing events—key presses, mouse clicks, device motions—through the hierarchy of a user interface. For example, shaking one’s device in iOS produces an undo event, if the user has a text field selected. The responder chain is responsible for passing shake events down the window hierarchy, eventually settling on the text field; were it not selected, the rest of the UI would have a chance to intercept and interpret this event.
 
@@ -274,7 +276,8 @@ Implementing a responder chain is fairly straightforward in an object-oriented v
 #+end_src
 
 Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from ~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional
-** One Polytypic Existential to Rule Them All
+
+* one polytypic existential to rule them all
 
 You, the reader, might at this point be turning up your nose at the idea of having to write a ~forall~-based existential type for every concievable typeclass that you might need to wrap. This is indeed a valid observation. Luckily, GHC Haskell gives us sufficient tools to write a data type that is polymorphic not just in terms of a hidden value it wraps, but in terms of the typeclass it uses!
 
@@ -313,7 +316,7 @@ someFunctorOfInts :: Some1 Functor ((~) Int)
 someFunctorOfInts = Some1 [1, 2, 3]
 #+end_src
 
-** I Dunno, Draw Your Own Conclusions
+* I dunno, draw your own conclusions
 
 Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, it’s nonetheless a profoundly useful technique both in the abstract and when dealing with the nitty-gritty of data manipulation.
 
