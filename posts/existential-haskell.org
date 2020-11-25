@@ -128,7 +128,7 @@ This stems from the fact that GADTs allow us to introduce per-constructor type v
 
 * casting around wildly
 
-Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
+Being able to hide implementation details of a function’s return type is all well and good, but many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
 
 #+begin_src java
   Comparable c = someFn();
@@ -328,4 +328,4 @@ someFunctorOfInts = Some1 [1, 2, 3]
 
 Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, they’re nonetheless profoundly useful, both in the abstract and when dealing with the nitty-gritty of data manipulation.
 
-/Thanks to Ayman Nadeem, Rob Rix, and Peter B. for reviewing drafts of this post./
+/Thanks to Ayman Nadeem, Rob Rix, and Peter Berger for reviewing drafts of this post./
