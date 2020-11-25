@@ -96,7 +96,7 @@
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>  <span class="dt">Showable</span><span class="ot"> ::</span> <span class="dt">Show</span> a <span class="ot">=&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Showable</span></span></code></pre></div>
 <p>This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally. Another thing to note is that data declarations containing existential values don’t have to be limited to a single value: they can hold concrete values, or values expressed with more <code>forall</code>–introduced type variables.</p>
 <h1 id="casting-around-wildly">casting around wildly</h1>
-<p>Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the <code>instanceof</code> operator and its cast syntax:</p>
+<p>Being able to hide implementation details of a function’s return type is all well and good, but many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the <code>instanceof</code> operator and its cast syntax:</p>
 <div class="sourceCode" id="cb14"><pre class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true"></a><span class="bu">Comparable</span> c = <span class="fu">someFn</span>();</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true"></a><span class="kw">if</span> c <span class="kw">instanceof</span> <span class="bu">String</span> {</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true"></a>    <span class="bu">System</span>.<span class="fu">out</span>.<span class="fu">println</span>(<span class="st">&quot;Got a string: &quot;</span> + (<span class="bu">String</span>)c);</span>
@@ -220,7 +220,7 @@
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true"></a>someFunctorOfInts <span class="ot">=</span> <span class="dt">Some1</span> [<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>]</span></code></pre></div>
 <h1 id="i-dunno-draw-your-own-conclusions">I dunno, draw your own conclusions</h1>
 <p>Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in <a href="https://github.com/github/semantic">Semantic</a>, where we hide the fact that different languages’ AST types are disjoint behind a <a href="https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57"><code>SomeParser</code> wrapper</a>. And though existentials in Haskell are a little odd, at least when compared to standard data types, they’re nonetheless profoundly useful, both in the abstract and when dealing with the nitty-gritty of data manipulation.</p>
-<p><em>Thanks to Ayman Nadeem, Rob Rix, and Peter B. for reviewing drafts of this post.</em></p>
+<p><em>Thanks to Ayman Nadeem, Rob Rix, and Peter Berger for reviewing drafts of this post.</em></p>
                 </section>
             </article>
         </div>
