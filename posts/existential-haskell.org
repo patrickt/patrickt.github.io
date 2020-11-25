@@ -124,7 +124,7 @@ This stems from the fact that GADTs allow us to introduce per-constructor type v
 Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
 
 #+begin_src java
-  Comparable c = someFn(0);
+  Comparable c = someFn();
   if c instanceof String {
       System.out.println("Got a string: " + (String)c);
   } else {
