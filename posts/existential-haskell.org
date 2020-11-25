@@ -189,8 +189,6 @@ As I mentioned, we’re only handling one possible error case: though ~handler~ 
 
 However, the problem becomes thornier when we want to handle disjoint ~Exception~-conformant types. A naïve encoding of the problem will not work, as in the following[fn:1], where we try to handle ~ArithExceptions~ and ~ArrayExceptions~:
 
-[fn:1] Note that this syntax ~Just (e :: ArithException)~, in which we annotate a value with an indicated type without pattern matching on it, requires the ~ScopedTypeVariables~ extension to be enabled. ~ScopedTypeVariables~ should /always/ be enabled: it does the right and obvious thing.
-
 #+begin_src haskell
   Just (arith :: ArithException) -> putStrLn ("arithmetic: " <> show arith)
   Just (array :: ArrayException) -> putStrLn ("array: " <> show array)
@@ -227,6 +225,8 @@ let val = cast e in if
 #+end_src
 
 Though this kind of runtime polymorphism isn’t enormously common in Haskell–we usually resolve polymorphism at compile-time—it’s not unheard of, and, as mentioned above, is provided as part of the ~Control.Exception~ interface to GHC’s hierarchy of exceptions. This Haskell design pattern—an existential data type that inherits from ~Typeable~---is as close to dynamic dispatch as Haskell gets. Though it’s not common, neither is it invalid: sometimes what’s needed is an event horizon, that hides the concrete representation of a datum but provides, via polymorphism, the chance to reconstitute itself into a concrete type with ~Typeable~.
+
+[fn:1] Note that this syntax ~Just (e :: ArithException)~, in which we annotate a value with an indicated type without pattern matching on it, requires the ~ScopedTypeVariables~ extension to be enabled. ~ScopedTypeVariables~ should /always/ be enabled: it does the right and obvious thing.
 
 ** Let’s Build a Responder Chain
 
@@ -313,7 +313,7 @@ someFunctorOfInts :: Some1 Functor ((~) Int)
 someFunctorOfInts = Some1 [1, 2, 3]
 #+end_src
 
-** Conclusion
+** I Dunno, Draw Your Own Conclusions
 
 Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, it’s nonetheless a profoundly useful technique both in the abstract and when dealing with the nitty-gritty of data manipulation.
 
