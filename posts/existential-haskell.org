@@ -119,7 +119,7 @@ This stems from the fact that GADTs allow us to introduce per-constructor type v
 
 [fn:3] Scala reserves a ~forSome~ keyword for this purpose, which I think reads a little more accurately in terms of the intent of introducing this type variable: using the phrase “for all” is a bit inapposite given that the ~Showable~ constructor is applied to single values at a time.
 
-* cast around wildly
+* casting around wildly
 
 Being able to hide implementation details of a function’s return type is all well and good, but at the end of the day, many users are going to need to convert (or attempt to convert) from an existential type back into a concrete type. Java provides this functionality with the ~instanceof~ operator and its cast syntax:
 
