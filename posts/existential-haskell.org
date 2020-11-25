@@ -1,3 +1,11 @@
+The majority of software engineering literature portrays object-oriented programming as distinct from, and often irreconcilable with, functional programming. This is, of course, a false dichotomy, as the techniques encouraged by functional programming are applicable in even the most object-oriented languages. Yet object-orientation, being perhaps history’s most popular software paradigm, has popularized its tenets, and occasionally we can see them show up even in programming languages like Haskell, a language about as antithetical to the object-oriented philosophy as possible.
+
+In this piece, I’ll describe a common example of [[https://en.wikipedia.org/wiki/Information_hiding][information hiding]] in ALGOL-style languages like Java, then express that in terms compatible with Haskell. We’ll then use this technique to port a /responder chain/ to Haskell, demonstrating how Haskell supports dynamic function dispatch in the presence of hidden type information. I write this not because I expect to break any new ground—all the techniques I use here are long-documented in the literature, and Haskell veterans will probably find little new in this post[fn:0]—but because the existing resources are scattered, perhaps oddly so given how central dynamic dispatch is to most programming languages that aren't Haskell, and because exploring the edge cases in the design illustrates the compromises inherent in language and library design.
+
+[fn:0] Those familiar with the care and feeding of existential types may wish to skip to the penultimate section, which contains a couple useful data types that I haven’t yet seen in the wild.
+
+* the “normal” way to do things
+
 Most of the world’s statically-typed programming languages allow their users to write code resembling the following Java:
 
 #+begin_src java
@@ -6,7 +14,9 @@ Most of the world’s statically-typed programming languages allow their users t
   }
 #+end_src
 
-Syntactically, this code is uncontroversial: it’s a function that returns a value. Its only interesting aspect lies in the function signature−even though the function body returns a value of type ~String~, its return type is declared to be [[https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html][~Comparable~]], which is not a concrete data type, but a Java [[https://en.wikipedia.org/wiki/Interface_(computing)][interface]]. As such, we cannot treat the result of this function call as the ~String~ it actually is; we can only interact with it via the methods defined on the ~Comparable~ interface. We can try to write the same thing in Haskell:
+Syntactically, this code is uncontroversial: it’s a function that returns a value. Its only interesting aspect lies in the function signature−even though the function body returns a value of type ~String~, its return type is declared to be [[https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html][~Comparable~]], which is not a concrete data type, but a Java [[https://en.wikipedia.org/wiki/Interface_(computing)][interface]]. As such, we cannot treat the result of this function call as the ~String~ it actually is; we can only interact with it via the methods defined on the ~Comparable~ interface. This application of the [[https://en.wikipedia.org/wiki/Rule_of_least_power][rule of least power]] is a useful one, even in a strongly-typed language like Haskell: sometimes we want to hide the implementation details of a function’s return type.
+
+We can try to write the same thing in Haskell:
 
 #+begin_src haskell
   someComparableValue :: Ord a => a
@@ -23,11 +33,8 @@ Because this is not semantically-valid Haskell, we get the following error:
           someComparableValue :: forall a. Ord a => Int -> a
 #+end_src
 
-Haskell’s typechecker looks at the body of this function and says “hey, man, you’re returning a concrete string value here, not ’any type that is ~Ord~--erable.’” Though this is a valid notion in Java, it’s not valid in Haskell. Another perspective on this is that Java allows a value to have more than one type: we can treat a Java string literal as a value of type ~java.lang.String~, or of type[fn:2] ~Comparable~, or of its superclass ~java.lang.Object~. This application of the [[https://en.wikipedia.org/wiki/Rule_of_least_power][rule of least power]] is a useful one: sometimes we want to hide the implementation details of a function’s return types. Haskell, being a powerful language, supports this use case with what are called /existential/ types.
+Haskell’s typechecker looks at the body of this function and says “hey, man, you’re returning a concrete string value here, not ’any type that is ~Ord~--erable.’” Though this is a valid notion in Java, it’s not valid in Haskell. Another perspective on this is that Java allows a value to have more than one type: we can treat a Java string literal as a value of type ~java.lang.String~, or of type[fn:2] ~Comparable~, or of its superclass ~java.lang.Object~. However, since Haskell doesn’t support inheritance, Haskell treats its values as having one, and only one, type. Working around this takes a judicious application of an existential type.
 
-What follows is an overview of existential types in practice, and the quirks associated therewith. I write this not because I expect to break any new ground—all the techniques I use here are long-documented in the literature, and Haskell veterans will probably find little new in this post[fn:0]—but because the existing resources are scattered, perhaps oddly so given how central dynamic dispatch is to most programming languages that aren't Haskell, and because exploring the edge cases in the design illustrates the compromises inherent in language and library design.
-
-[fn:0] Those familiar with the care and feeding of existential types may wish to skip to the penultimate section, which contains a couple useful data types that I haven’t yet seen in the wild.
 [fn:2] even though ~Comparable~ is an interface, not a concrete type
 
 
@@ -68,7 +75,7 @@ When we consider typeclasses as [[https://blog.sumtypeofway.com/posts/fluent-pol
 A third interesting thing: we can’t write a function that unwraps this data type. What might seem like an intuitive type for the function is rejected:
 
 #+begin_src haskell
-  – GHC will reject this!
+  -- GHC will reject this.
   unwrapShowable :: Showable -> (forall a . Show a => a)
   unwrapShowable (Showable a) = a
 #+end_src
@@ -275,7 +282,8 @@ Implementing a responder chain is fairly straightforward in an object-oriented v
     pure (Chain result)
 #+end_src
 
-Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from ~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional
+Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from
+~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional
 
 * one polytypic existential to rule them all
 
@@ -320,4 +328,4 @@ someFunctorOfInts = Some1 [1, 2, 3]
 
 Haskell is a language where we like concrete, inferable types and type variables. Yet sometimes the Right Thing to do is to hide the details of heterogenous data types behind an existential wrapper—you can see this in action in [[https://github.com/github/semantic][Semantic]], where we hide the fact that different languages’ AST types are disjoint behind a [[https://github.com/github/semantic/blob/a44e3c40cc120b8efccb4908e3142482ea46577f/semantic/src/Parsing/Parser.hs#L52-L57][~SomeParser~ wrapper]]. And though existentials in Haskell are a little odd, at least when compared to standard data types, they’re nonetheless profoundly useful, both in the abstract and when dealing with the nitty-gritty of data manipulation.
 
-/Thanks to Ayman Nadeem and Rob Rix for reviewing drafts of this post./
+/Thanks to Ayman Nadeem, Rob Rix, and Peter B. for reviewing drafts of this post./
