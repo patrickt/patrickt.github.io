@@ -132,7 +132,7 @@ Being able to hide implementation details of a function’s return type is all w
   }
 #+end_src
 
-Though this style of programming isn’t hugely popular in Haskell, it’s not unheard of, and Haskell indeed supports it: this is where the [[https://google.com/search?hl=en&q=data.typeable][~Typeable~]] typeclass comes in. It’s most prominently at work in ~base~, under ~Control.Exception:~
+This is a consequence of all Java objects descending from ~java.lang.Object~, and the ability of the ~instanceof~ operator to query the type of an object at runtime. Though this style of programming isn’t hugely popular in Haskell, it’s not unheard of, and Haskell indeed supports it: this is where the [[https://google.com/search?hl=en&q=data.typeable][~Typeable~]] typeclass comes in. It’s most prominently at work in ~base~, under ~Control.Exception:~
 
 #+begin_src haskell
 class (Typeable a, Show e) => Exception e
