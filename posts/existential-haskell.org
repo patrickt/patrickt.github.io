@@ -292,7 +292,7 @@ let wrappedInt = Some @Show (5 :: Int)
 
 This seems like a broadly applicable data type, but it’s not present in the standard library or any widely-used libraries (though the inimitable Rob Rix tells me that he’s defined it many times, at which I bear zero surprise, because Rob is a maestro).
 
-We can extend this to types composed out of other types, like ~Int~ or ~Vector String~: this ~Some1~ constructor is polymorphic in two type variables, both of which take arguments and return ~Constraint~ kinds.
+We can extend this to types composed out of other types, like ~[Int]~ or ~Vector String~: this ~Some1~ constructor is polymorphic in two type variables, both of which take arguments and return ~Constraint~ kinds.
 
 #+BEGIN_SRC haskell
 data Some1 c d where
