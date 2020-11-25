@@ -33,13 +33,13 @@ What follows is an overview of existential types in practice, and the quirks ass
 
 * quick, some definitions
 
-In Haskell, an /existential/ data type is one that is defined in terms not of a concrete type, but in terms of a quantified type variable, introduced on the right-hand side of the data declaration. This is, as is the case for so many Haskell concepts, not a particularly elucidating definition in the abstract. It’s easier to show than to tell, so let's take a look at one of the canonical examples of an existential type: a ~Showable~ type that wraps any type that implements the ~Show~ interface.
+In Haskell, an /existential/ data type is one that is defined in terms not of a concrete type, but in terms of a quantified type variable, introduced on the right-hand side of the data declaration. This is, as is the case for so many Haskell concepts, not a particularly helpful definition in the abstract. It’s easier to show than to tell, so let's take a look at one of the canonical examples of an existential type: a ~Showable~ type that wraps any type that implements the ~Show~ interface.
 
 #+begin_src haskell
 data Showable = forall a . Show a => Showable a
 #+end_src
 
-There are several interesting things about this data type. Firstly, it uses the ~forall~ keyword to introduce the ~a~ type variable: given that we’re dealing with /exist/-ential types, it threw me for a loop that there wasn’t an ~exists~ keyword.[fn:3] Considering the constructor of ~Showable~ is perhaps more elucidating:
+There are several interesting things about this data type. Firstly, it uses the ~forall~ keyword to introduce the ~a~ type variable: given that we’re dealing with /exist/-ential types, it threw me for a loop that there wasn’t an ~exists~ keyword.[fn:3] Considering the constructor of ~Showable~ is perhaps more enlightening:
 
 #+begin_src haskell
 λ> :t Showable
