@@ -6,7 +6,7 @@ Most of the world’s statically-typed programming languages allow their users t
   }
 #+end_src
 
-Syntactically, this code is uncontroversial: it’s a function that returns a value. Its only interesting aspect lies in the function signature−even though the function body returns a value of type ~String~, its return type is declared to be [[https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html][~Comparable~]], which is not a concrete data type, but a Java [[https://en.wikipedia.org/wiki/Interface_(computing)][interface]]. We can try to write the same thing in Haskell:
+Syntactically, this code is uncontroversial: it’s a function that returns a value. Its only interesting aspect lies in the function signature−even though the function body returns a value of type ~String~, its return type is declared to be [[https://docs.oracle.com/javase/8/docs/api/java/lang/Comparable.html][~Comparable~]], which is not a concrete data type, but a Java [[https://en.wikipedia.org/wiki/Interface_(computing)][interface]]. As such, we cannot treat the result of this function call as the ~String~ it actually is; we can only interact with it via the methods defined on the ~Comparable~ interface. We can try to write the same thing in Haskell:
 
 #+begin_src haskell
   someComparableValue :: Ord a => a
@@ -76,19 +76,19 @@ A third interesting thing: we can’t write a function that unwraps this data ty
 We can see this explained a little more closely if we use the record selector syntax.
 
 #+begin_src haskell
-data Showable = forall a . Show a => Showable { unShowable :: a }
+data Showable = forall a . Show a => Showable { getShowable :: a }
 #+end_src
 
-Attempting to use ~unShowable~ as a function that extracts some arbitrary ~Show~--inhabiting type produces a well-explained error messages:
+Attempting to use ~getShowable~ as a function that extracts some arbitrary ~Show~--inhabiting type produces a well-explained error messages:
 
 #+begin_src
 <interactive>:1:1: error:
-    • Cannot use record selector ‘unShowable’ as a function due to escaped type variables
+    • Cannot use record selector ‘getShowable’ as a function due to escaped type variables
       Probable fix: use pattern-matching syntax instead
-    • In the expression: unShowable
+    • In the expression: getShowable
 #+end_src
 
-The mental model I use here is that applying a constructor of an existential type serves as a sort of [[https://en.wikipedia.org/wiki/Event_horizon][event horizon]] for type information. In other languages we can assemble heterogenous lists natively; in Haskell, by contrast, we have to opt into it explicitly: applying the ~Showable~ constructor to a value swallows its type information. We can’t write a function, whether hand-written or descending from a record selector, that unwraps some arbitrary type out of an existential. All that is retained is the ability, given a proper ~case~ statement to unwrap the value within the existential, to ~Show~ the value contained therein: it cannot /escape/ its scope, as the error message above explains[fn:recordupdate].
+The mental model I use here is that applying a constructor of an existential type serves as a sort of [[https://en.wikipedia.org/wiki/Event_horizon][event horizon]] for type information. In other languages we can assemble heterogenous lists natively; in Haskell, by contrast, we have to opt into it explicitly: applying the ~Showable~ constructor to a value swallows its type information. We can’t write a function, whether the hand-written ~unwrapShowable~ or descending from our ~getShowable~ record selector, that unwraps some arbitrary type out of an existential. All that is retained is the ability, given a proper ~case~ statement to unwrap the value within the existential, to ~Show~ the value contained therein: it cannot /escape/ its scope, as the error message above explains[fn:recordupdate].
 
 We can, as I mentioned above, cross the event horizon with a ~case~ statement, binding the ~Show~--conforming contents to a variable name:
 
@@ -113,9 +113,9 @@ data Showable where
   Showable :: Show a => a -> Showable
 #+end_src
 
-This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally. Another thing to note is that existential values don’t have to be limited to a single value: they can hold concrete values, or values expressed with more ~forall~--introduced type variables.
+This stems from the fact that GADTs allow us to introduce per-constructor type variables and associated constraints, even if the type variable is not visible externally. Another thing to note is that data declarations containing existential values don’t have to be limited to a single value: they can hold concrete values, or values expressed with more ~forall~--introduced type variables.
 
-[fn:recordupdate] We can, however, use the ~unShowable~ record selector to update the wrapped value present in a ~Showable~.
+[fn:recordupdate] We can, however, use the ~getShowable~ record selector to update the wrapped value present in a ~Showable~.
 
 [fn:3] Scala reserves a ~forSome~ keyword for this purpose, which I think reads a little more accurately in terms of the intent of introducing this type variable: using the phrase “for all” is a bit inapposite given that the ~Showable~ constructor is applied to single values at a time.
 
