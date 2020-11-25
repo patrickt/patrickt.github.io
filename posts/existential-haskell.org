@@ -27,7 +27,7 @@ Haskell’s typechecker looks at the body of this function and says “hey, man,
 
 What follows is an overview of existential types in practice, and the quirks associated therewith. I write this not because I expect to break any new ground—all the techniques I use here are long-documented in the literature, and Haskell veterans will probably find little new in this post[fn:0]—but because the existing resources are scattered, perhaps oddly so given how central dynamic dispatch is to most programming languages that aren't Haskell, and because exploring the edge cases in the design illustrates the compromises inherent in language and library design.
 
-[fn:0] Those familiar with the care and feeding of existential types may wish to skip to the final section, which contains a couple useful data types that I haven’t yet seen in the wild.
+[fn:0] Those familiar with the care and feeding of existential types may wish to skip to the penultimate section, which contains a couple useful data types that I haven’t yet seen in the wild.
 [fn:2] even though ~Comparable~ is an interface, not a concrete type
 
 
