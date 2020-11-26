@@ -284,8 +284,7 @@ Implementing a responder chain is fairly straightforward in an object-oriented v
     pure (Chain result)
 #+end_src
 
-Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from
-~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional
+Similarly to the ~Exception~ class, we define a ~Responder~ typeclass that implements the interface common to all UI elements that can respond to some hypothetical ~Event~ type. This inherits both from ~Show~ and from ~Typeable~, in order to admit the ~cast~ operation on the contents of a concrete ~SomeResponder~ wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the ~Responder~ class; the process of propagating an event down a chain involves a ~for~ loop over the elements, asking each item in turn how it handles a given ~Event~. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional language like Haskell.
 
 * one polytypic existential to rule them all
 
