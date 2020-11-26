@@ -224,14 +224,7 @@ if
   | otherwise -> putStrLn ("Something else: " <> show e)
 #+end_src
 
-This is arguably a bastardization of the spirit of ~MultiWayIf~, which is ostensibly about simplifying large systems of boolean equations. Here, the only ~Bool~ value involved is ~otherwise~, defined by the Prelude to be ~True~. Because ~True~ is always, well, ~True~, its position as the last branch will mean that it is always matched, unless matched by a previous case (that is, a successful ~Just~ value). Yet the ~otherwise~ is readable in context, the code’s intent is clear, and its one flaw—the repeated work associated with the multiple calls to ~cast~---can be remedied with a simple ~let~ binding:
-
-#+begin_src haskell
-if
-  | Just (arith :: ArithException) <- cast e -> putStrLn ("arith: " <> show arith)
-  | Just (array :: ArrayException) <- cast e -> putStrLn ("array: " <> show array)
-  | otherwise -> putStrLn ("Something else: " <> show e)
-#+end_src
+This is arguably a bastardization of the spirit of ~MultiWayIf~, which is ostensibly about simplifying large systems of boolean equations. Here, the only ~Bool~ value involved is ~otherwise~, defined by the Prelude to be ~True~. Because ~True~ is always, well, ~True~, its position as the last branch will mean that it is always matched, unless matched by a previous case (that is, a successful ~Just~ value). Yet the ~otherwise~ is readable in context, and the code’s intent is clear.
 
 Though this kind of runtime polymorphism isn’t enormously common in Haskell–we usually resolve polymorphism at compile-time—it’s not unheard of, and, as mentioned above, is provided as part of the ~Control.Exception~ interface to GHC’s hierarchy of exceptions. This Haskell design pattern—an existential data type that inherits from ~Typeable~---is as close to dynamic dispatch as Haskell gets. Though it’s not common, neither is it invalid: sometimes what’s needed is an event horizon, that hides the concrete representation of a datum but provides, via polymorphism, the chance to reconstitute itself into a concrete type with ~Typeable~.
 
