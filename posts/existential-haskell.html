@@ -162,11 +162,11 @@
 <p>Implementing a responder chain is fairly straightforward in an object-oriented view of the world: there is some superclass that all user interface elements extend, and this interface provides a lingua franca for events to be dynamically dispatched. It becomes somewhat more intricate, at least on the face of it, in a strongly-typed world sans subtyping. Indeed, this was <a href="https://inessential.com/2016/05/14/the_tension_of_swift">one of the qualms</a> expressed by the Objective-C community in response to the emergence of Swift. While Swift is <a href="http://roopc.net/posts/2016/swifty-responder-chain/">perfectly capable</a> of expressing a fluent, idiomatic responder chain, the lesson is more broadly applicable. Indeed, we can envision a UI framework that implemented this behavior in Haskell:</p>
 <div class="sourceCode" id="cb25"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true"></a><span class="kw">data</span> <span class="dt">Response</span> a <span class="kw">where</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true"></a>  <span class="dt">Accept</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">Response</span> a</span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true"></a>  <span class="dt">Finish</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">Response</span> ()</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true"></a>  <span class="dt">Finish</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">Response</span> a</span>
 <span id="cb25-4"><a href="#cb25-4" aria-hidden="true"></a>  <span class="dt">Defer</span><span class="ot"> ::</span> <span class="dt">Response</span> a</span>
 <span id="cb25-5"><a href="#cb25-5" aria-hidden="true"></a></span>
 <span id="cb25-6"><a href="#cb25-6" aria-hidden="true"></a><span class="kw">class</span> (<span class="dt">Typeable</span> a, <span class="dt">Show</span> a) <span class="ot">=&gt;</span> <span class="dt">Responder</span> a <span class="kw">where</span></span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true"></a><span class="ot">  respond ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Response</span> a</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true"></a><span class="ot">  respond ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> a <span class="ot">-&gt;</span> <span class="dt">Response</span> a</span>
 <span id="cb25-8"><a href="#cb25-8" aria-hidden="true"></a></span>
 <span id="cb25-9"><a href="#cb25-9" aria-hidden="true"></a><span class="kw">data</span> <span class="dt">SomeResponder</span> <span class="ot">=</span> <span class="kw">forall</span> a <span class="op">.</span> <span class="dt">Responder</span> a <span class="ot">=&gt;</span> <span class="dt">SomeResponder</span> a</span>
 <span id="cb25-10"><a href="#cb25-10" aria-hidden="true"></a></span>
@@ -175,27 +175,29 @@
 <span id="cb25-13"><a href="#cb25-13" aria-hidden="true"></a><span class="co">-- Dirt-simple imperative implementation with the ST monad.</span></span>
 <span id="cb25-14"><a href="#cb25-14" aria-hidden="true"></a><span class="co">-- An implementation with a fold could do this all purely</span></span>
 <span id="cb25-15"><a href="#cb25-15" aria-hidden="true"></a><span class="co">-- but the accumulator is a little fiddly</span></span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true"></a><span class="ot">propagate ::</span> <span class="dt">Responder</span> a <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> <span class="dt">Chain</span> <span class="ot">-&gt;</span> <span class="dt">Chain</span></span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true"></a>propagate fn (<span class="dt">Chain</span> c) <span class="ot">=</span> runST <span class="kw">do</span></span>
+<span id="cb25-16"><a href="#cb25-16" aria-hidden="true"></a><span class="ot">propagate ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Chain</span> <span class="ot">-&gt;</span> <span class="dt">Chain</span></span>
+<span id="cb25-17"><a href="#cb25-17" aria-hidden="true"></a>propagate evt (<span class="dt">Chain</span> c) <span class="ot">=</span> runST <span class="kw">do</span></span>
 <span id="cb25-18"><a href="#cb25-18" aria-hidden="true"></a>  <span class="co">-- We need a signaling variable in case something in the chain</span></span>
 <span id="cb25-19"><a href="#cb25-19" aria-hidden="true"></a>  <span class="co">-- wants to abort the traversal.</span></span>
 <span id="cb25-20"><a href="#cb25-20" aria-hidden="true"></a>  abort <span class="ot">&lt;-</span> newSTRef <span class="dt">False</span></span>
 <span id="cb25-21"><a href="#cb25-21" aria-hidden="true"></a>  <span class="co">-- Iterate through the responder chain...</span></span>
 <span id="cb25-22"><a href="#cb25-22" aria-hidden="true"></a>  result <span class="ot">&lt;-</span> for c \(<span class="dt">SomeResponder</span> item) <span class="ot">-&gt;</span> <span class="kw">do</span></span>
 <span id="cb25-23"><a href="#cb25-23" aria-hidden="true"></a>    <span class="co">-- attempting to apply the function at each item</span></span>
-<span id="cb25-24"><a href="#cb25-24" aria-hidden="true"></a>    <span class="kw">let</span> given <span class="ot">=</span> <span class="fu">fmap</span> fn (cast item)</span>
+<span id="cb25-24"><a href="#cb25-24" aria-hidden="true"></a>    <span class="kw">let</span> given <span class="ot">=</span> respond evt item</span>
 <span id="cb25-25"><a href="#cb25-25" aria-hidden="true"></a>    <span class="co">-- but first checking to see if we've aborted in prior iterations</span></span>
 <span id="cb25-26"><a href="#cb25-26" aria-hidden="true"></a>    done <span class="ot">&lt;-</span> readSTRef abort</span>
-<span id="cb25-27"><a href="#cb25-27" aria-hidden="true"></a>    <span class="kw">if</span></span>
-<span id="cb25-28"><a href="#cb25-28" aria-hidden="true"></a>      <span class="co">-- A prior Finish result means we no-op</span></span>
-<span id="cb25-29"><a href="#cb25-29" aria-hidden="true"></a>      <span class="op">|</span> done <span class="ot">-&gt;</span> <span class="fu">pure</span> item</span>
-<span id="cb25-30"><a href="#cb25-30" aria-hidden="true"></a>      <span class="co">-- Return a new value while writing to the signal variable.</span></span>
-<span id="cb25-31"><a href="#cb25-31" aria-hidden="true"></a>      <span class="op">|</span> <span class="dt">Just</span> (<span class="dt">Finish</span> a) <span class="ot">&lt;-</span> given <span class="ot">-&gt;</span> a <span class="op">&lt;$</span> writeSTRef abort <span class="dt">True</span></span>
-<span id="cb25-32"><a href="#cb25-32" aria-hidden="true"></a>      <span class="co">-- Just return the new value.</span></span>
-<span id="cb25-33"><a href="#cb25-33" aria-hidden="true"></a>      <span class="op">|</span> <span class="dt">Just</span> (<span class="dt">Accept</span> a) <span class="ot">&lt;-</span> given <span class="ot">-&gt;</span> <span class="fu">pure</span> a</span>
-<span id="cb25-34"><a href="#cb25-34" aria-hidden="true"></a>      <span class="co">-- No match? Continue onward</span></span>
-<span id="cb25-35"><a href="#cb25-35" aria-hidden="true"></a>      <span class="op">|</span> _ <span class="ot">-&gt;</span> <span class="fu">pure</span> item</span>
-<span id="cb25-36"><a href="#cb25-36" aria-hidden="true"></a>  <span class="fu">pure</span> (<span class="dt">Chain</span> result)</span></code></pre></div>
+<span id="cb25-27"><a href="#cb25-27" aria-hidden="true"></a>    <span class="co">-- shortcut for rewrapping and returning a SomeResponder</span></span>
+<span id="cb25-28"><a href="#cb25-28" aria-hidden="true"></a>    <span class="kw">let</span> wrap <span class="ot">=</span> <span class="fu">pure</span> <span class="op">.</span> <span class="dt">SomeResponder</span></span>
+<span id="cb25-29"><a href="#cb25-29" aria-hidden="true"></a>    <span class="kw">if</span></span>
+<span id="cb25-30"><a href="#cb25-30" aria-hidden="true"></a>      <span class="co">-- A prior Finish result means we no-op</span></span>
+<span id="cb25-31"><a href="#cb25-31" aria-hidden="true"></a>      <span class="op">|</span> done <span class="ot">-&gt;</span> wrap item</span>
+<span id="cb25-32"><a href="#cb25-32" aria-hidden="true"></a>      <span class="co">-- Return a new value while writing to the signal variable.</span></span>
+<span id="cb25-33"><a href="#cb25-33" aria-hidden="true"></a>      <span class="op">|</span> <span class="dt">Finish</span> a <span class="ot">&lt;-</span> given <span class="ot">-&gt;</span> writeSTRef abort <span class="dt">True</span> <span class="op">*&gt;</span> wrap a</span>
+<span id="cb25-34"><a href="#cb25-34" aria-hidden="true"></a>      <span class="co">-- Just return the new value.</span></span>
+<span id="cb25-35"><a href="#cb25-35" aria-hidden="true"></a>      <span class="op">|</span> <span class="dt">Accept</span> a <span class="ot">&lt;-</span> given <span class="ot">-&gt;</span> wrap a</span>
+<span id="cb25-36"><a href="#cb25-36" aria-hidden="true"></a>      <span class="co">-- No match? Continue onward</span></span>
+<span id="cb25-37"><a href="#cb25-37" aria-hidden="true"></a>      <span class="op">|</span> <span class="dt">Defer</span> <span class="ot">-&gt;</span> wrap item</span>
+<span id="cb25-38"><a href="#cb25-38" aria-hidden="true"></a>  <span class="fu">pure</span> (<span class="dt">Chain</span> result)</span></code></pre></div>
 <p>Similarly to the <code>Exception</code> class, we define a <code>Responder</code> typeclass that implements the interface common to all UI elements that can respond to some hypothetical <code>Event</code> type. This inherits both from <code>Show</code> and from <code>Typeable</code>, in order to admit the <code>cast</code> operation on the contents of a concrete <code>SomeResponder</code> wrapper. From this definition, we can describe a responder chain as a list of existentially-wrapped UI elements, the capabilities of which are described by the <code>Responder</code> class. This is profoundly imperative code, but that’s okay: sometimes imperative code is what’s needed, even in a functional</p>
 <h1 id="one-polytypic-existential-to-rule-them-all">one polytypic existential to rule them all</h1>
 <p>You, the reader, might at this point be turning up your nose at the idea of having to write a <code>forall</code>-based existential type for every concievable typeclass that you might need to wrap. This is indeed a valid observation. Luckily, GHC Haskell gives us sufficient tools to write a data type that is polymorphic not just in terms of a hidden value it wraps, but in terms of the typeclass it uses!</p>
