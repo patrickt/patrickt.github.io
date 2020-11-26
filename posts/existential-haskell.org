@@ -246,11 +246,11 @@ Implementing a responder chain is fairly straightforward in an object-oriented v
 #+begin_src haskell
   data Response a where
     Accept :: a -> Response a
-    Finish :: a -> Response ()
+    Finish :: a -> Response a
     Defer :: Response a
 
   class (Typeable a, Show a) => Responder a where
-    respond :: Event -> Response a
+    respond :: Event -> a -> Response a
 
   data SomeResponder = forall a . Responder a => SomeResponder a
 
@@ -259,26 +259,28 @@ Implementing a responder chain is fairly straightforward in an object-oriented v
   -- Dirt-simple imperative implementation with the ST monad.
   -- An implementation with a fold could do this all purely
   -- but the accumulator is a little fiddly
-  propagate :: Responder a => (a -> a) -> Chain -> Chain
-  propagate fn (Chain c) = runST do
+  propagate :: Event -> Chain -> Chain
+  propagate evt (Chain c) = runST do
     -- We need a signaling variable in case something in the chain
     -- wants to abort the traversal.
     abort <- newSTRef False
     -- Iterate through the responder chain...
     result <- for c \(SomeResponder item) -> do
       -- attempting to apply the function at each item
-      let given = fmap fn (cast item)
+      let given = respond evt item
       -- but first checking to see if we've aborted in prior iterations
       done <- readSTRef abort
+      -- shortcut for rewrapping and returning a SomeResponder
+      let wrap = pure . SomeResponder
       if
         -- A prior Finish result means we no-op
-        | done -> pure item
+        | done -> wrap item
         -- Return a new value while writing to the signal variable.
-        | Just (Finish a) <- given -> a <$ writeSTRef abort True
+        | Finish a <- given -> writeSTRef abort True *> wrap a
         -- Just return the new value.
-        | Just (Accept a) <- given -> pure a
+        | Accept a <- given -> wrap a
         -- No match? Continue onward
-        | _ -> pure item
+        | Defer -> wrap item
     pure (Chain result)
 #+end_src
 
