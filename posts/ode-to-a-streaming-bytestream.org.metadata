@@ -1,0 +1,4 @@
+title: "Ode to a Streaming ByteString"
+subtitle: "Or: Lazy I/O without Shooting Yourself in the Foot"
+date: 2021-07-24
+description: On the problem of file I/O, and how the streaming-bytestring library approaches it.

@@ -23,8 +23,11 @@
         <div id="content">
             <article>
                 <h1>$title$</h1>
+                $if(subtitle)$
+                  <h2>$subtitle$</h2>
+                $endif$
                 $if(date)$
-                  <h2>$date$</h2>
+                  <h3 class="numeral">$date$</h3>
                 $endif$
                 <section>
                     $body$
