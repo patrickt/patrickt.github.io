@@ -8,8 +8,16 @@
         <name>Patrick Thomson</name>
         <email>patrick.william.thomson@gmail.com</email>
     </author>
-    <updated>2020-11-25T00:00:00Z</updated>
+    <updated>2021-07-24T00:00:00Z</updated>
     <entry>
+    <title>Ode to a Streaming ByteString</title>
+    <link href="https://blog.sumtypeofway.com/posts/ode-to-a-streaming-bytestream.html" />
+    <id>https://blog.sumtypeofway.com/posts/ode-to-a-streaming-bytestream.html</id>
+    <published>2021-07-24T00:00:00Z</published>
+    <updated>2021-07-24T00:00:00Z</updated>
+    <summary type="html"><![CDATA[On the problem of file I/O, and how the streaming-bytestring library approaches it.]]></summary>
+</entry>
+<entry>
     <title>Existential Haskell</title>
     <link href="https://blog.sumtypeofway.com/posts/existential-haskell.html" />
     <id>https://blog.sumtypeofway.com/posts/existential-haskell.html</id>
@@ -18,7 +26,7 @@
     <summary type="html"><![CDATA[An overview of existentially quantified data types in Haskell.]]></summary>
 </entry>
 <entry>
-    <title>My Emacs Configuration (Or, Emacs is Agar for Brain Worms)</title>
+    <title>My Emacs Configuration</title>
     <link href="https://blog.sumtypeofway.com/posts/emacs-config.html" />
     <id>https://blog.sumtypeofway.com/posts/emacs-config.html</id>
     <published>2020-09-14T00:00:00Z</published>
@@ -40,14 +48,6 @@
     <published>2020-04-14T00:00:00Z</published>
     <updated>2020-04-14T00:00:00Z</updated>
     <summary type="html"><![CDATA[A list of things you can do to speed up the development cycle of Haskell projects.]]></summary>
-</entry>
-<entry>
-    <title>Serving HTTP Content with Fused-Effects</title>
-    <link href="https://blog.sumtypeofway.com/posts/serving-http-content-with-fused-effects.html" />
-    <id>https://blog.sumtypeofway.com/posts/serving-http-content-with-fused-effects.html</id>
-    <published>2019-11-22T00:00:00Z</published>
-    <updated>2019-11-22T00:00:00Z</updated>
-    <summary type="html"><![CDATA[Building a dead-simple web framework with WAI and fused-effects.]]></summary>
 </entry>
 
 </feed>
