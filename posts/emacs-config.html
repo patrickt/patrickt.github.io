@@ -40,6 +40,7 @@
 <p>Yet I don’t feel bad about publishing something this self-indulgent. Not only because maybe it’ll demystify what the care and feeding of a very-intense Emacs setup looks like, and also because yak-shaving is an excellent way to occupy myself in quarantine <span><label for="sn-2" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-2" class="margin-toggle" /><span class="sidenote">Hello, future generations! If you’re reading this, please believe me when I say that <span class="numeral">2020</span> was a truly enervating time to be a human being.<br />
 <br />
 </span></span>, but because I’m happier with my setup as an org-mode document, as Emacs configurations generally have a high propensity for entropy: it’s easy to leave a few computer-specific hacks in some dusty corner of a config, and then, upon returning years later, having absolutely no idea what that hack does. Forcing a literate style guilts me into documenting every inch of it. In addition, I have been thanked by strangers for the quality of my config, and my coworker described it as “inspiring”, which seems like sufficient justification to continue, at least with respect to my ego.</p>
+<p>This configuration assumes you’re running Emacs 28, the latest version (though I live off of <code>HEAD</code>). Note that I strongly, <em>strongly</em> recommend using an Emacs built with native compilation enabled. The difference in speed is truly profound. Getting <code>libgccjit</code> and friends set up can be a bit of a bear (I use <a href="https://github.com/jimeh/build-emacs-for-macos">this script</a> on macOS), but it’s absolutely essential if you want to live in Emacs to the degree that I do.</p>
 <h2 id="canonical-links-to-this-document">Canonical links to this document</h2>
 <p>The most up-to-date version of this document is located <a href="https://github.com/patrickt/emacs">on GitHub</a>. A better-rendered version can be found <a href="https://blog.sumtypeofway.com/posts/emacs-config.html">on my blog</a>, but might not be as current as the first version.</p>
 <h1 id="configuration-start">Configuration: start!</h1>
@@ -57,7 +58,7 @@
 <div class="sourceCode" id="cb3" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a>(<span class="kw">setq</span> use-package-always-ensure <span class="kw">t</span>)</span></code></pre></div>
 <p>Don’t copy this to your config! This is to work around weird bugs with JITted Emacs.</p>
 <div class="sourceCode" id="cb4" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a>(<span class="kw">setq</span> package-check-signature <span class="kw">nil</span>)</span></code></pre></div>
-<p>THe most useful Emacs command is <code>execute-extended-command</code>. It should be painless to access from the home row. (<code>bind-key*</code> ensures that this setting is propagated through all major modes, which saves us a bunch of <code>unbind-key</code> calls in <code>use-package</code> stanzas.)</p>
+<p>The most useful Emacs command is <code>execute-extended-command</code>. It should be painless to access from the home row. (<code>bind-key*</code> ensures that this setting is propagated through all major modes, which saves us a bunch of <code>unbind-key</code> calls in <code>use-package</code> stanzas.)</p>
 <div class="sourceCode" id="cb5" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a>(bind-key* <span class="st">&quot;C-c ;&quot;</span> #'execute-extended-command)</span></code></pre></div>
 <p>Since subsequent packages like <code>libgit</code> may depend on executables like <code>cmake</code>, we need to ensure that Emacs has access to the PATH associated with the current environment.</p>
 <div class="sourceCode" id="cb6" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a>(<span class="kw">use-package</span> exec-path-from-shell</span>
@@ -99,12 +100,14 @@
 <span id="cb7-33"><a href="#cb7-33" aria-hidden="true"></a> load-prefer-newer <span class="kw">t</span></span>
 <span id="cb7-34"><a href="#cb7-34" aria-hidden="true"></a> <span class="co">;; when I say to quit, I mean quit</span></span>
 <span id="cb7-35"><a href="#cb7-35" aria-hidden="true"></a> confirm-kill-processes <span class="kw">nil</span></span>
-<span id="cb7-36"><a href="#cb7-36" aria-hidden="true"></a> )</span>
-<span id="cb7-37"><a href="#cb7-37" aria-hidden="true"></a></span>
-<span id="cb7-38"><a href="#cb7-38" aria-hidden="true"></a><span class="co">;; Never mix tabs and spaces. Never use tabs, period.</span></span>
-<span id="cb7-39"><a href="#cb7-39" aria-hidden="true"></a><span class="co">;; We need the setq-default here because this becomes</span></span>
-<span id="cb7-40"><a href="#cb7-40" aria-hidden="true"></a><span class="co">;; a buffer-local variable when set.</span></span>
-<span id="cb7-41"><a href="#cb7-41" aria-hidden="true"></a>(setq-default indent-tabs-mode <span class="kw">nil</span>)</span></code></pre></div>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true"></a> <span class="co">;; if native-comp is having trouble, there's not very much I can do</span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true"></a> native-comp-async-report-warnings-errors 'silent</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true"></a> )</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true"></a></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true"></a><span class="co">;; Never mix tabs and spaces. Never use tabs, period.</span></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true"></a><span class="co">;; We need the setq-default here because this becomes</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true"></a><span class="co">;; a buffer-local variable when set.</span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true"></a>(setq-default indent-tabs-mode <span class="kw">nil</span>)</span></code></pre></div>
 <p>It’s good that Emacs supports the wide variety of file encodings it does, but UTF-8 should always, <em>always</em> be the default.</p>
 <div class="sourceCode" id="cb8" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a>(set-charset-priority 'unicode)</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a>(prefer-coding-system 'utf<span class="dv">-8</span>-unix)</span></code></pre></div>
@@ -139,11 +142,12 @@
 <div class="sourceCode" id="cb16" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true"></a>(unbind-key <span class="st">&quot;C-x C-f&quot;</span>) <span class="co">;; find-file-read-only</span></span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true"></a>(unbind-key <span class="st">&quot;C-x C-d&quot;</span>) <span class="co">;; list-directory</span></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true"></a>(unbind-key <span class="st">&quot;C-z&quot;</span>) <span class="co">;; suspend-frame</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true"></a>(unbind-key <span class="st">&quot;M-o&quot;</span>) <span class="co">;; facemenu-mode</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;mouse-2&gt;&quot;</span>) <span class="co">;; pasting with mouse-wheel click</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;C-wheel-down&gt;&quot;</span>) <span class="co">;; text scale adjust</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;C-wheel-up&gt;&quot;</span>) <span class="co">;; ditto</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true"></a>(unbind-key <span class="st">&quot;s-n&quot;</span>) <span class="co">;; make-frame</span></span></code></pre></div>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true"></a>(unbind-key <span class="st">&quot;C-x C-z&quot;</span>) <span class="co">;; again</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true"></a>(unbind-key <span class="st">&quot;M-o&quot;</span>) <span class="co">;; facemenu-mode</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;mouse-2&gt;&quot;</span>) <span class="co">;; pasting with mouse-wheel click</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;C-wheel-down&gt;&quot;</span>) <span class="co">;; text scale adjust</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true"></a>(unbind-key <span class="st">&quot;&lt;C-wheel-up&gt;&quot;</span>) <span class="co">;; ditto</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true"></a>(unbind-key <span class="st">&quot;s-n&quot;</span>) <span class="co">;; make-frame</span></span></code></pre></div>
 <p>By default, I want paste operations to indent their results. I could express this as defadvice around the yank command, but I try to avoid such measures if possible.</p>
 <div class="sourceCode" id="cb17" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true"></a>(<span class="kw">defun</span><span class="fu"> pt/yank </span>()</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true"></a>  <span class="st">&quot;Call yank, then indent the pasted region, as TextMate does.&quot;</span></span>
@@ -371,9 +375,9 @@
 <p>Emacs has an <code>executable-prefix-env</code> command that adds a magic shebang line to scripts in interpreted languages. With a little cajoling, it can use <code>env(1)</code> instead of hardcoding the interpreter path, which is slightly more robust in certain circumstances.</p>
 <div class="sourceCode" id="cb60" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true"></a>(<span class="kw">setq</span> executable-prefix-env <span class="kw">t</span>)</span></code></pre></div>
 <p>The new <code>context-menu-mode</code> in Emacs 28 makes right-click a lot more useful. But for terminal emacs, it’s handy to have the menubar at hand.</p>
-<div class="sourceCode" id="cb61" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true"></a>(<span class="kw">when</span> (<span class="kw">fboundp</span> 'context-menu-mode) (context-menu-mode))</span>
-<span id="cb61-2"><a href="#cb61-2" aria-hidden="true"></a>(bind-key <span class="st">&quot;C-c C-m&quot;</span> #'tmm-menubar)</span>
-<span id="cb61-3"><a href="#cb61-3" aria-hidden="true"></a></span></code></pre></div>
+<div class="sourceCode" id="cb61" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true"></a>(<span class="kw">when</span> (<span class="kw">fboundp</span> 'context-menu-mode)</span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true"></a>  (context-menu-mode)</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true"></a>  (bind-key <span class="st">&quot;C-c C-m&quot;</span> #'tmm-menubar))</span></code></pre></div>
 <h2 id="buffer-management">Buffer management</h2>
 <p>I almost always want to default to a two-buffer setup.</p>
 <div class="sourceCode" id="cb62" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true"></a>(<span class="kw">defun</span><span class="fu"> revert-to-two-windows </span>()</span>
@@ -613,27 +617,28 @@
 <span id="cb77-26"><a href="#cb77-26" aria-hidden="true"></a>         (<span class="st">&quot;C-x b&quot;</span>   . #'consult-buffer)</span>
 <span id="cb77-27"><a href="#cb77-27" aria-hidden="true"></a>         (<span class="st">&quot;C-c r&quot;</span>   . #'consult-recent-file)</span>
 <span id="cb77-28"><a href="#cb77-28" aria-hidden="true"></a>         (<span class="st">&quot;C-c y&quot;</span>   . #'pt/yank-pop)</span>
-<span id="cb77-29"><a href="#cb77-29" aria-hidden="true"></a>         (<span class="st">&quot;C-c h&quot;</span>   . #'consult-ripgrep)</span>
-<span id="cb77-30"><a href="#cb77-30" aria-hidden="true"></a>         (<span class="st">&quot;C-x C-f&quot;</span> . #'find-file)</span>
-<span id="cb77-31"><a href="#cb77-31" aria-hidden="true"></a>         (<span class="st">&quot;C-h a&quot;</span>   . #'consult-apropos)</span>
-<span id="cb77-32"><a href="#cb77-32" aria-hidden="true"></a>         )</span>
-<span id="cb77-33"><a href="#cb77-33" aria-hidden="true"></a>  :custom</span>
-<span id="cb77-34"><a href="#cb77-34" aria-hidden="true"></a>  (completion-in-region-function #'consult-completion-in-region)</span>
-<span id="cb77-35"><a href="#cb77-35" aria-hidden="true"></a>  (xref-show-xrefs-function #'consult-xref)</span>
-<span id="cb77-36"><a href="#cb77-36" aria-hidden="true"></a>  (xref-show-definitions-function #'consult-xref)</span>
-<span id="cb77-37"><a href="#cb77-37" aria-hidden="true"></a>  )</span>
-<span id="cb77-38"><a href="#cb77-38" aria-hidden="true"></a></span>
-<span id="cb77-39"><a href="#cb77-39" aria-hidden="true"></a>(<span class="kw">use-package</span> marginalia</span>
-<span id="cb77-40"><a href="#cb77-40" aria-hidden="true"></a>  :config (marginalia-mode))</span>
-<span id="cb77-41"><a href="#cb77-41" aria-hidden="true"></a></span>
-<span id="cb77-42"><a href="#cb77-42" aria-hidden="true"></a>(<span class="kw">use-package</span> orderless</span>
-<span id="cb77-43"><a href="#cb77-43" aria-hidden="true"></a>  :custom (completion-styles '(orderless)))</span>
-<span id="cb77-44"><a href="#cb77-44" aria-hidden="true"></a></span>
-<span id="cb77-45"><a href="#cb77-45" aria-hidden="true"></a>(<span class="kw">use-package</span> ctrlf</span>
-<span id="cb77-46"><a href="#cb77-46" aria-hidden="true"></a>  :config (ctrlf-mode))</span>
-<span id="cb77-47"><a href="#cb77-47" aria-hidden="true"></a></span>
-<span id="cb77-48"><a href="#cb77-48" aria-hidden="true"></a>(<span class="kw">use-package</span> prescient</span>
-<span id="cb77-49"><a href="#cb77-49" aria-hidden="true"></a>  :config (prescient-persist-mode))</span></code></pre></div>
+<span id="cb77-29"><a href="#cb77-29" aria-hidden="true"></a>         (<span class="st">&quot;C-c R&quot;</span>   . #'consult-bookmark)</span>
+<span id="cb77-30"><a href="#cb77-30" aria-hidden="true"></a>         (<span class="st">&quot;C-c h&quot;</span>   . #'consult-ripgrep)</span>
+<span id="cb77-31"><a href="#cb77-31" aria-hidden="true"></a>         (<span class="st">&quot;C-x C-f&quot;</span> . #'find-file)</span>
+<span id="cb77-32"><a href="#cb77-32" aria-hidden="true"></a>         (<span class="st">&quot;C-h a&quot;</span>   . #'consult-apropos)</span>
+<span id="cb77-33"><a href="#cb77-33" aria-hidden="true"></a>         )</span>
+<span id="cb77-34"><a href="#cb77-34" aria-hidden="true"></a>  :custom</span>
+<span id="cb77-35"><a href="#cb77-35" aria-hidden="true"></a>  (completion-in-region-function #'consult-completion-in-region)</span>
+<span id="cb77-36"><a href="#cb77-36" aria-hidden="true"></a>  (xref-show-xrefs-function #'consult-xref)</span>
+<span id="cb77-37"><a href="#cb77-37" aria-hidden="true"></a>  (xref-show-definitions-function #'consult-xref)</span>
+<span id="cb77-38"><a href="#cb77-38" aria-hidden="true"></a>  )</span>
+<span id="cb77-39"><a href="#cb77-39" aria-hidden="true"></a></span>
+<span id="cb77-40"><a href="#cb77-40" aria-hidden="true"></a>(<span class="kw">use-package</span> marginalia</span>
+<span id="cb77-41"><a href="#cb77-41" aria-hidden="true"></a>  :config (marginalia-mode))</span>
+<span id="cb77-42"><a href="#cb77-42" aria-hidden="true"></a></span>
+<span id="cb77-43"><a href="#cb77-43" aria-hidden="true"></a>(<span class="kw">use-package</span> orderless</span>
+<span id="cb77-44"><a href="#cb77-44" aria-hidden="true"></a>  :custom (completion-styles '(orderless)))</span>
+<span id="cb77-45"><a href="#cb77-45" aria-hidden="true"></a></span>
+<span id="cb77-46"><a href="#cb77-46" aria-hidden="true"></a>(<span class="kw">use-package</span> ctrlf</span>
+<span id="cb77-47"><a href="#cb77-47" aria-hidden="true"></a>  :config (ctrlf-mode))</span>
+<span id="cb77-48"><a href="#cb77-48" aria-hidden="true"></a></span>
+<span id="cb77-49"><a href="#cb77-49" aria-hidden="true"></a>(<span class="kw">use-package</span> prescient</span>
+<span id="cb77-50"><a href="#cb77-50" aria-hidden="true"></a>  :config (prescient-persist-mode))</span></code></pre></div>
 <p>Dumb-jump is pretty good at figuring out where declarations of things might be. I’m using it with C because I’m too lazy to set up true C LSP integration.</p>
 <div class="sourceCode" id="cb78" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true"></a>(<span class="kw">use-package</span> dumb-jump</span>
 <span id="cb78-2"><a href="#cb78-2" aria-hidden="true"></a>  :bind ((<span class="st">&quot;C-c J&quot;</span> . #'dumb-jump-go)))</span></code></pre></div>
