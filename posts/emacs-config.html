@@ -43,13 +43,11 @@
 <p>This configuration assumes you’re running Emacs 28, the latest version (though I live off of <code>HEAD</code>). Note that I strongly, <em>strongly</em> recommend using an Emacs built with native compilation enabled. The difference in speed is truly profound. Getting <code>libgccjit</code> and friends set up can be a bit of a bear (I use <a href="https://github.com/jimeh/build-emacs-for-macos">this script</a> on macOS), but it’s absolutely essential if you want to live in Emacs to the degree that I do.</p>
 <h2 id="canonical-links-to-this-document">Canonical links to this document</h2>
 <p>The most up-to-date version of this document is located <a href="https://github.com/patrickt/emacs">on GitHub</a>. A better-rendered version can be found <a href="https://blog.sumtypeofway.com/posts/emacs-config.html">on my blog</a>, but might not be as current as the first version.</p>
-<h1 id="configuration-start">Configuration: start!</h1>
-<p>Some TODOs:</p>
+<h2 id="todos">TODOs</h2>
 <ul>
-<li>Figure out why we keep getting a save dialog for <code>/dev/null</code>, and <code>defadvice</code> our way out of this.</li>
-<li>Port flycheck configuration to flymake</li>
 <li>Make a popper function that gives Magit a bit more breathing room</li>
 </ul>
+<h1 id="configuration-start">Configuration: start!</h1>
 <h2 id="preliminaries">Preliminaries</h2>
 <p>We have to be sure to set <code>lexical-binding</code> in the file header to opt into Emacs lexical scope. Emacs Lisp really isn’t the worst language once you pull in the community’s <em>de facto</em> standard libraries, but you need lexical scope.</p>
 <div class="sourceCode" id="cb1" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true"></a><span class="co">;; -*- coding: utf-8; lexical-binding: t -*-</span></span></code></pre></div>
@@ -101,12 +99,14 @@
 <span id="cb6-35"><a href="#cb6-35" aria-hidden="true"></a> confirm-kill-processes <span class="kw">nil</span></span>
 <span id="cb6-36"><a href="#cb6-36" aria-hidden="true"></a> <span class="co">;; if native-comp is having trouble, there's not very much I can do</span></span>
 <span id="cb6-37"><a href="#cb6-37" aria-hidden="true"></a> native-comp-async-report-warnings-errors 'silent</span>
-<span id="cb6-38"><a href="#cb6-38" aria-hidden="true"></a> )</span>
-<span id="cb6-39"><a href="#cb6-39" aria-hidden="true"></a></span>
-<span id="cb6-40"><a href="#cb6-40" aria-hidden="true"></a><span class="co">;; Never mix tabs and spaces. Never use tabs, period.</span></span>
-<span id="cb6-41"><a href="#cb6-41" aria-hidden="true"></a><span class="co">;; We need the setq-default here because this becomes</span></span>
-<span id="cb6-42"><a href="#cb6-42" aria-hidden="true"></a><span class="co">;; a buffer-local variable when set.</span></span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true"></a>(setq-default indent-tabs-mode <span class="kw">nil</span>)</span></code></pre></div>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true"></a> <span class="co">;; unicode ellipses are better</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true"></a> truncate-string-ellipsis <span class="st">&quot;…&quot;</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true"></a> )</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true"></a></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true"></a><span class="co">;; Never mix tabs and spaces. Never use tabs, period.</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true"></a><span class="co">;; We need the setq-default here because this becomes</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true"></a><span class="co">;; a buffer-local variable when set.</span></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true"></a>(setq-default indent-tabs-mode <span class="kw">nil</span>)</span></code></pre></div>
 <p>It’s good that Emacs supports the wide variety of file encodings it does, but UTF-8 should always, <em>always</em> be the default.</p>
 <div class="sourceCode" id="cb7" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a>(set-charset-priority 'unicode)</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a>(prefer-coding-system 'utf<span class="dv">-8</span>-unix)</span></code></pre></div>
@@ -133,7 +133,8 @@
 <div class="sourceCode" id="cb14" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true"></a>(<span class="kw">use-package</span> recentf</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true"></a>  :config</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true"></a>  (add-to-list 'recentf-exclude <span class="st">&quot;</span><span class="sc">\\</span><span class="st">elpa&quot;</span>)</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true"></a>  (recentf-mode))</span></code></pre></div>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true"></a>  (add-to-list 'recentf-exclude <span class="st">&quot;private/tmp&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true"></a>  (recentf-mode))</span></code></pre></div>
 <p>Emoji don’t work on Emacs versions &lt; 27 (aside from the Mitsuharu Yamamoto emacs-mac port). However, we can just do this.</p>
 <div class="sourceCode" id="cb15" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true"></a>(set-fontset-font <span class="st">&quot;fontset-default&quot;</span> 'unicode <span class="st">&quot;Apple Color Emoji&quot;</span> <span class="kw">nil</span> 'prepend)</span></code></pre></div>
 <p>These libraries are helpful to have around when writing little bits of elisp, like the below. You can’t possibly force me to remember the difference between the <code>mapcar</code>, <code>mapc</code>, <code>mapcan</code>, <code>mapconcat</code>, and the <code>cl-</code> versions of some of the aforementioned. I refuse.</p>
@@ -234,7 +235,7 @@
 <div class="sourceCode" id="cb32" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true"></a>(<span class="kw">use-package</span> diminish</span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true"></a>  :config</span>
 <span id="cb32-3"><a href="#cb32-3" aria-hidden="true"></a>  (diminish 'visual-line-mode))</span></code></pre></div>
-<p>The default modeline is pretty uninspiring, and <code>mood-line</code> is very minimal and pleasing. (UPDATE: It’s crashing on install for some reason.)</p>
+<p>The default modeline is pretty uninspiring, and <code>mood-line</code> is very minimal and pleasing.</p>
 <div class="sourceCode" id="cb33" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true"></a>(<span class="kw">use-package</span> mood-line</span>
 <span id="cb33-2"><a href="#cb33-2" aria-hidden="true"></a>  :config (mood-line-mode))</span></code></pre></div>
 <p>I find it useful to have a slightly more apparent indicator of which buffer is active at the moment.</p>
@@ -299,7 +300,7 @@
 <span id="cb44-4"><a href="#cb44-4" aria-hidden="true"></a>  :bind ((<span class="st">&quot;C-c l&quot;</span> . avy-goto-line)</span>
 <span id="cb44-5"><a href="#cb44-5" aria-hidden="true"></a>         (<span class="st">&quot;C-c j&quot;</span> . avy-goto-char)))</span></code></pre></div>
 <p><code>iedit</code> gives us the very popular idiom of automatically deploying multiple cursors to edit all occurrences of a particular word.</p>
-<div class="sourceCode" id="cb45" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true"></a>(<span class="kw">use-package</span> iedit)</span></code></pre></div>
+<div class="sourceCode" id="cb45" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true"></a>(<span class="kw">use-package</span> iedit :defer <span class="kw">t</span>)</span></code></pre></div>
 <p>Parenthesis matching is one of the flaws in my Emacs setup as of this writing. I know that there are a lot of options out there—<code>paredit</code>, <code>smartparens</code>, etc.—but I haven’t sat down and really capital-L Learned a better solution than the TextMate-style bracket completion (which Emacs calls, somewhat fancifully, ‘electric’).</p>
 <div class="sourceCode" id="cb46" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true"></a>(electric-pair-mode)</span></code></pre></div>
 <p>I got used to a number of convenient TextMate-style commands.</p>
@@ -310,7 +311,7 @@
 <span id="cb47-5"><a href="#cb47-5" aria-hidden="true"></a>  (newline-and-indent))</span>
 <span id="cb47-6"><a href="#cb47-6" aria-hidden="true"></a></span>
 <span id="cb47-7"><a href="#cb47-7" aria-hidden="true"></a>(bind-key <span class="st">&quot;s-&lt;return&gt;&quot;</span> #'pt/eol-then-newline)</span></code></pre></div>
-<p>It’s occasionally useful to be able to search a Unicode character by name.</p>
+<p>It’s occasionally useful to be able to search a Unicode character by name. And it’s a measure of Emacs’s performance, when using native-comp and Vertico, that you can search the entire Unicode character space without any keystroke latency.</p>
 <div class="sourceCode" id="cb48" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true"></a>(bind-key <span class="st">&quot;C-c U&quot;</span> #'insert-char)</span></code></pre></div>
 <h2 id="quality-of-life-improvements">Quality-of-life improvements</h2>
 <p>We start by binding a few builtin commands to more-convenient keystrokes.</p>
@@ -548,7 +549,11 @@
 <span id="cb74-5"><a href="#cb74-5" aria-hidden="true"></a>(<span class="kw">unless</span> (<span class="kw">boundp</span> 'bug-reference-auto-setup-functions)</span>
 <span id="cb74-6"><a href="#cb74-6" aria-hidden="true"></a>  (<span class="kw">defvar</span><span class="fu"> bug-reference-auto-setup-functions </span>'()))</span></code></pre></div>
 <p>The code-review package allows for integration with pull request comments and such.</p>
-<div class="sourceCode" id="cb75" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true"></a>(<span class="kw">use-package</span> code-review :after magit)</span></code></pre></div>
+<div class="sourceCode" id="cb75" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true"></a>(<span class="kw">use-package</span> code-review</span>
+<span id="cb75-2"><a href="#cb75-2" aria-hidden="true"></a>  :after magit</span>
+<span id="cb75-3"><a href="#cb75-3" aria-hidden="true"></a>  :bind (:map forge-topic-mode-map (<span class="st">&quot;C-c r&quot;</span> . #'code-review-forge-pr-at-point))</span>
+<span id="cb75-4"><a href="#cb75-4" aria-hidden="true"></a>  :bind (:map code-review-mode-map ((<span class="st">&quot;C-c n&quot;</span> . #'code-review-comment-jump-next)</span>
+<span id="cb75-5"><a href="#cb75-5" aria-hidden="true"></a>                                    (<span class="st">&quot;C-c p&quot;</span> . #'code-review-comment-jump-previous))))</span></code></pre></div>
 <h2 id="project-navigation">Project navigation</h2>
 <p>I used to use Projectile, but <code>marginalia-mode</code> doesn’t appear to work out of the box with it. Besides, there’s no reason to pull in a separate package when the builtin <code>project.el</code> works fine. We pin it to GNU ELPA to pull the latest version.</p>
 <div class="sourceCode" id="cb76" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true"></a>(<span class="kw">use-package</span> project</span>
@@ -600,31 +605,28 @@
 <span id="cb77-28"><a href="#cb77-28" aria-hidden="true"></a>         (<span class="st">&quot;C-c y&quot;</span>   . #'pt/yank-pop)</span>
 <span id="cb77-29"><a href="#cb77-29" aria-hidden="true"></a>         (<span class="st">&quot;C-c R&quot;</span>   . #'consult-bookmark)</span>
 <span id="cb77-30"><a href="#cb77-30" aria-hidden="true"></a>         (<span class="st">&quot;C-c `&quot;</span>   . #'consult-flymake)</span>
-<span id="cb77-31"><a href="#cb77-31" aria-hidden="true"></a>         <span class="co">;; I usually use ripgrep, but something in the package's</span></span>
-<span id="cb77-32"><a href="#cb77-32" aria-hidden="true"></a>         <span class="co">;; internals is causing a lot of its async requests to fail.</span></span>
-<span id="cb77-33"><a href="#cb77-33" aria-hidden="true"></a>         <span class="co">;; It also could be this bleeding-edge Emacs build. Whatever.</span></span>
-<span id="cb77-34"><a href="#cb77-34" aria-hidden="true"></a>         <span class="co">;; Git grep is fine.</span></span>
-<span id="cb77-35"><a href="#cb77-35" aria-hidden="true"></a>         (<span class="st">&quot;C-c h&quot;</span>   . #'consult-git-grep)</span>
-<span id="cb77-36"><a href="#cb77-36" aria-hidden="true"></a>         (<span class="st">&quot;C-x C-f&quot;</span> . #'find-file)</span>
-<span id="cb77-37"><a href="#cb77-37" aria-hidden="true"></a>         (<span class="st">&quot;C-h a&quot;</span>   . #'consult-apropos)</span>
-<span id="cb77-38"><a href="#cb77-38" aria-hidden="true"></a>         )</span>
-<span id="cb77-39"><a href="#cb77-39" aria-hidden="true"></a>  :custom</span>
-<span id="cb77-40"><a href="#cb77-40" aria-hidden="true"></a>  (completion-in-region-function #'consult-completion-in-region)</span>
-<span id="cb77-41"><a href="#cb77-41" aria-hidden="true"></a>  (xref-show-xrefs-function #'consult-xref)</span>
-<span id="cb77-42"><a href="#cb77-42" aria-hidden="true"></a>  (xref-show-definitions-function #'consult-xref)</span>
-<span id="cb77-43"><a href="#cb77-43" aria-hidden="true"></a>  )</span>
+<span id="cb77-31"><a href="#cb77-31" aria-hidden="true"></a>         (<span class="st">&quot;C-c h&quot;</span>   . #'consult-ripgrep)</span>
+<span id="cb77-32"><a href="#cb77-32" aria-hidden="true"></a>         (<span class="st">&quot;C-x C-f&quot;</span> . #'find-file)</span>
+<span id="cb77-33"><a href="#cb77-33" aria-hidden="true"></a>         (<span class="st">&quot;C-h a&quot;</span>   . #'consult-apropos)</span>
+<span id="cb77-34"><a href="#cb77-34" aria-hidden="true"></a>         )</span>
+<span id="cb77-35"><a href="#cb77-35" aria-hidden="true"></a>  :custom</span>
+<span id="cb77-36"><a href="#cb77-36" aria-hidden="true"></a>  (completion-in-region-function #'consult-completion-in-region)</span>
+<span id="cb77-37"><a href="#cb77-37" aria-hidden="true"></a>  (xref-show-xrefs-function #'consult-xref)</span>
+<span id="cb77-38"><a href="#cb77-38" aria-hidden="true"></a>  (xref-show-definitions-function #'consult-xref)</span>
+<span id="cb77-39"><a href="#cb77-39" aria-hidden="true"></a>  (consult-project-root-function #'deadgrep--project-root) <span class="co">;; ensure ripgrep works</span></span>
+<span id="cb77-40"><a href="#cb77-40" aria-hidden="true"></a>  )</span>
+<span id="cb77-41"><a href="#cb77-41" aria-hidden="true"></a></span>
+<span id="cb77-42"><a href="#cb77-42" aria-hidden="true"></a>(<span class="kw">use-package</span> marginalia</span>
+<span id="cb77-43"><a href="#cb77-43" aria-hidden="true"></a>  :config (marginalia-mode))</span>
 <span id="cb77-44"><a href="#cb77-44" aria-hidden="true"></a></span>
-<span id="cb77-45"><a href="#cb77-45" aria-hidden="true"></a>(<span class="kw">use-package</span> marginalia</span>
-<span id="cb77-46"><a href="#cb77-46" aria-hidden="true"></a>  :config (marginalia-mode))</span>
+<span id="cb77-45"><a href="#cb77-45" aria-hidden="true"></a>(<span class="kw">use-package</span> orderless</span>
+<span id="cb77-46"><a href="#cb77-46" aria-hidden="true"></a>  :custom (completion-styles '(orderless)))</span>
 <span id="cb77-47"><a href="#cb77-47" aria-hidden="true"></a></span>
-<span id="cb77-48"><a href="#cb77-48" aria-hidden="true"></a>(<span class="kw">use-package</span> orderless</span>
-<span id="cb77-49"><a href="#cb77-49" aria-hidden="true"></a>  :custom (completion-styles '(orderless)))</span>
+<span id="cb77-48"><a href="#cb77-48" aria-hidden="true"></a>(<span class="kw">use-package</span> ctrlf</span>
+<span id="cb77-49"><a href="#cb77-49" aria-hidden="true"></a>  :config (ctrlf-mode))</span>
 <span id="cb77-50"><a href="#cb77-50" aria-hidden="true"></a></span>
-<span id="cb77-51"><a href="#cb77-51" aria-hidden="true"></a>(<span class="kw">use-package</span> ctrlf</span>
-<span id="cb77-52"><a href="#cb77-52" aria-hidden="true"></a>  :config (ctrlf-mode))</span>
-<span id="cb77-53"><a href="#cb77-53" aria-hidden="true"></a></span>
-<span id="cb77-54"><a href="#cb77-54" aria-hidden="true"></a>(<span class="kw">use-package</span> prescient</span>
-<span id="cb77-55"><a href="#cb77-55" aria-hidden="true"></a>  :config (prescient-persist-mode))</span></code></pre></div>
+<span id="cb77-51"><a href="#cb77-51" aria-hidden="true"></a>(<span class="kw">use-package</span> prescient</span>
+<span id="cb77-52"><a href="#cb77-52" aria-hidden="true"></a>  :config (prescient-persist-mode))</span></code></pre></div>
 <p>Dumb-jump is pretty good at figuring out where declarations of things might be. I’m using it with C because I’m too lazy to set up true C LSP integration.</p>
 <div class="sourceCode" id="cb78" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true"></a>(<span class="kw">use-package</span> dumb-jump</span>
 <span id="cb78-2"><a href="#cb78-2" aria-hidden="true"></a>  :bind ((<span class="st">&quot;C-c J&quot;</span> . #'dumb-jump-go)))</span></code></pre></div>
@@ -765,7 +767,7 @@
 <h1 id="snippets">Snippets</h1>
 <p>I grew up writing in TextMate, so I got extremely used to text-expansion snippets. I also think they’re extremely underrated for learning a new language’s idioms: one of the reasons I was able to get up to speed so fast with Rails (back in the 1.2 days) was because the TextMate snippets indicated pretty much everything you needed to know about things like ActiveRecord.</p>
 <div class="sourceCode" id="cb90" data-org-language="emacs-lisp"><pre class="sourceCode commonlisp"><code class="sourceCode commonlisp"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true"></a>(<span class="kw">use-package</span> yasnippet</span>
-<span id="cb90-2"><a href="#cb90-2" aria-hidden="true"></a>  :defer <span class="dv">3</span> <span class="co">;; takes a while to load, so do it async</span></span>
+<span id="cb90-2"><a href="#cb90-2" aria-hidden="true"></a>  :defer <span class="dv">15</span> <span class="co">;; takes a while to load, so do it async</span></span>
 <span id="cb90-3"><a href="#cb90-3" aria-hidden="true"></a>  :diminish yas-minor-mode</span>
 <span id="cb90-4"><a href="#cb90-4" aria-hidden="true"></a>  :config (yas-global-mode)</span>
 <span id="cb90-5"><a href="#cb90-5" aria-hidden="true"></a>  :custom (yas-prompt-functions '(yas-completing-prompt)))</span></code></pre></div>
