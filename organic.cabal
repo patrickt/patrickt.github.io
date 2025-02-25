@@ -27,7 +27,7 @@ executable organic
   other-modules:       Filters
   -- other-extensions:
   build-depends:       base
-                     , hakyll ^>= 4.13.4
+                     , hakyll ^>= 4.16
                      , text
                      , pandoc
                      , pandoc-sidenote
