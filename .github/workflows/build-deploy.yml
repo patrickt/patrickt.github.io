@@ -37,10 +37,7 @@ jobs:
 
       - name: 'Run peaceiris/actions-gh-pages@v4.0.0: deploy to github pages'
         uses: peaceiris/actions-gh-pages@v4.0.0
-        env:
+        with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          ACTIONS_DEPLOY_KEY: ${{ secrets.ACTIONS_DEPLOY_KEY }}
-          PUBLISH_BRANCH: master
-          PUBLISH_DIR: _site
-          EXTERNAL_REPOSITORY: patrickt/patrickt.github.io
+          publish_dir: _site
         if: github.ref == 'refs/heads/develop'
