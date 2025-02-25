@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>adventures in uncertainty</title>
+    <link href="https://blog.sumtypeofway.com/atom.xml" rel="self" />
+    <link href="https://blog.sumtypeofway.com" />
+    <id>https://blog.sumtypeofway.com/atom.xml</id>
+    <author>
+        <name>Patrick Thomson</name>
+        
+        <email>patrick.william.thomson@gmail.com</email>
+        
+    </author>
+    <updated>2021-07-24T00:00:00Z</updated>
+    <entry>
+    <title>Ode to a Streaming ByteString</title>
+    <link href="https://blog.sumtypeofway.com/posts/ode-to-a-streaming-bytestream.html" />
+    <id>https://blog.sumtypeofway.com/posts/ode-to-a-streaming-bytestream.html</id>
+    <published>2021-07-24T00:00:00Z</published>
+    <updated>2021-07-24T00:00:00Z</updated>
+    <summary type="html"><![CDATA[On the problem of file I/O, and how the streaming-bytestring library approaches it.]]></summary>
+</entry>
+<entry>
+    <title>Existential Haskell</title>
+    <link href="https://blog.sumtypeofway.com/posts/existential-haskell.html" />
+    <id>https://blog.sumtypeofway.com/posts/existential-haskell.html</id>
+    <published>2020-11-25T00:00:00Z</published>
+    <updated>2020-11-25T00:00:00Z</updated>
+    <summary type="html"><![CDATA[An overview of existentially quantified data types in Haskell.]]></summary>
+</entry>
+<entry>
+    <title>My Emacs Configuration</title>
+    <link href="https://blog.sumtypeofway.com/posts/emacs-config.html" />
+    <id>https://blog.sumtypeofway.com/posts/emacs-config.html</id>
+    <published>2020-09-14T00:00:00Z</published>
+    <updated>2020-09-14T00:00:00Z</updated>
+    <summary type="html"><![CDATA[A descent into madness, chronicled through an Emacs setup.]]></summary>
+</entry>
+<entry>
+    <title>Bazel, Haskell, and Build-System Joy</title>
+    <link href="https://blog.sumtypeofway.com/posts/bazel-haskell-build-system-joy.html" />
+    <id>https://blog.sumtypeofway.com/posts/bazel-haskell-build-system-joy.html</id>
+    <published>2020-09-10T00:00:00Z</published>
+    <updated>2020-09-10T00:00:00Z</updated>
+    <summary type="html"><![CDATA[I ported a large Haskell project to Bazel and lived to tell about it.]]></summary>
+</entry>
+<entry>
+    <title>Towards Faster Iteration in Industrial Haskell</title>
+    <link href="https://blog.sumtypeofway.com/posts/fast-iteration-with-haskell.html" />
+    <id>https://blog.sumtypeofway.com/posts/fast-iteration-with-haskell.html</id>
+    <published>2020-04-14T00:00:00Z</published>
+    <updated>2020-04-14T00:00:00Z</updated>
+    <summary type="html"><![CDATA[A list of things you can do to speed up the development cycle of Haskell projects.]]></summary>
+</entry>
+
+</feed>
