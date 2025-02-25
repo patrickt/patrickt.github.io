@@ -23,6 +23,10 @@ main = hakyll do
 
   match "css/*" $ compile compressCssCompiler
 
+  match "cv.pdf" do
+    route idRoute
+    compile getResourceLBS
+
   create ["stylesheet.css"] do
     route idRoute
     compile do
